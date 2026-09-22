@@ -2,11 +2,11 @@
 const mysql = require('mysql2');
 
 const pool = mysql.createPool({
-  host: 'brsnbcr7hjfgmgle84ag-mysql.services.clever-cloud.com',
-  port: 3306,
-  user: 'ufggp2rwcazaskip',
-  password: '46SYyN9CC0DcGhiLlQ5O',
-  database: 'brsnbcr7hjfgmgle84ag',
+  host: '127.0.0.1',       // ใช้ IP ชี้ไปที่เครื่องตัวเอง
+  port: 3306,              // Port มาตรฐานของ MySQL ใน XAMPP
+  user: 'root',
+  password: '',            // XAMPP ค่าเริ่มต้นไม่มีรหัสผ่าน (ปล่อยว่าง)
+  database: 'lalita_pharmacy',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -14,9 +14,9 @@ const pool = mysql.createPool({
 
 pool.getConnection((err, connection) => {
   if (err) {
-    console.error('❌ เชื่อมต่อ Cloud MySQL ไม่สำเร็จ:', err.message);
+    console.error('❌ เชื่อมต่อ MySQL ไม่สำเร็จ:', err.message);
   } else {
-    console.log('✅ เชื่อมต่อ Cloud MySQL สำเร็จเรียบร้อย!');
+    console.log('✅ เชื่อมต่อ MySQL ใน XAMPP สำเร็จเรียบร้อย!');
     connection.release();
   }
 });

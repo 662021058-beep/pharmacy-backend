@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
@@ -15,8 +16,8 @@ app.use(cors({
 
 app.use(express.json());
 
-// 🔑 ตั้งค่า LINE Messaging API Token
-const CHANNEL_ACCESS_TOKEN = 'usa+9GHFHDZU51oWCbsaKCCannqWYEttN9rT4iU6zZZ6QXb1xJ2t57r1lOyY/awsgvVNhVISp6BSky/AoX6pe2f6Qr4xfmWc1hnn8g9EPyjKyAb+5L+H2kYxyaXNiXSypZRbsbC9Z0M8Utt82lRINAdB04t89/1O/w1cDnyilFU=';
+// 🔑 ตั้งค่า LINE Messaging API Token (ดึงจาก process.env ก่อน หากไม่มีจะใช้ค่าสำรอง)
+const CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || 'usa+9GHFHDZU51oWCbsaKCCannqWYEttN9rT4iU6zZZ6QXb1xJ2t57r1lOyY/awsgvVNhVISp6BSky/AoX6pe2f6Qr4xfmWc1hnn8g9EPyjKyAb+5L+H2kYxyaXNiXSypZRbsbC9Z0M8Utt82lRINAdB04t89/1O/w1cDnyilFU=';
 
 // ----------------------------------------------------
 // 📲 HELPER FUNCTIONS FOR LINE MESSAGING
@@ -255,7 +256,7 @@ app.post('/api/users', async (req, res) => {
       );
     } else {
       await db.query(
-        'INSERT INTO users (username, password_hash, name, role, line_user_id) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO users (username, password_hash, name, role, line_user_id) VALUES (?, ?, ?, ?)',
         [username, password, name, role, line_user_id || null]
       );
     }
@@ -775,9 +776,18 @@ app.post('/api/line/webhook', async (req, res) => {
   }
 });
 
-
-
-
+// 🧪 API สำหรับ External Cron (Cron-job.org) เรียกส่งแจ้งเตือนเข้า LINE
+app.get('/api/cron/daily-alert', async (req, res) => {
+  try {
+    await generateStockReportAndNotify();
+    return res.status(200).json({ 
+      success: true, 
+      message: '🚀 สรุปรายงานคลังยาและส่งแจ้งเตือนเข้า LINE เรียบร้อยแล้ว!' 
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 // 🧪 API สำหรับทดสอบยิงแจ้งเตือนเข้า LINE ทันที
 app.get('/api/test-notify', async (req, res) => {
@@ -791,8 +801,6 @@ app.get('/api/test-notify', async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 });
-
-
 
 const PORT = process.env.PORT || 8000;
 

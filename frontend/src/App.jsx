@@ -10,9 +10,14 @@ import {
   MessageSquare, Send, Bot, ShieldCheck, UserPlus, Trash2, HelpCircle, Bell, Smartphone, Menu
 } from 'lucide-react';
 
-const API_URL = 'http://127.0.0.1:8000/api';
+const API_URL = 'https://lalita-pharmacy-api.onrender.com/api';
 
-// MODERN EYE-COMFORT TEAL PALETTE (ORIGINKIT DESIGN)
+// INITIAL CHATBOT MESSAGES FOR RESET
+const INITIAL_CHAT_MESSAGES = [
+  { id: 1, sender: 'bot', text: 'สวัสดีครับ ระบบผู้ช่วยจัดการคลังยา LALITA PHARMACY พร้อมให้บริการ สามารถสอบถามข้อมูลสต็อก ยาหมดอายุ การเบิกจ่าย FEFO หรือการรับแจ้งเตือนผ่าน LINE อัตโนมัติทุก 8 โมงเช้าได้เลยครับ', time: '08:00' }
+];
+
+// MODERN EYE-COMFORT TEAL PALETTE
 const MONO = {
   DARKEST: '#0f172a',
   DARK: '#334155',
@@ -34,8 +39,8 @@ const ALERTS = {
 };
 
 // STYLES OBJECTS
-const appContainerStyle = { display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden', backgroundColor: MONO.PALE };
-const sidebarStyle = { width: '260px', backgroundColor: '#ffffff', borderRight: `1px solid ${MONO.TINT}`, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '16px', flexShrink: 0, height: '100%' };
+const appContainerStyle = { display: 'flex', height: '100dvh', width: '100vw', overflow: 'hidden', backgroundColor: MONO.PALE, position: 'fixed', top: 0, left: 0 };
+const sidebarStyle = { width: '260px', backgroundColor: '#ffffff', borderRight: `1px solid ${MONO.TINT}`, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '16px', flexShrink: 0, height: '100dvh', position: 'sticky', top: 0, zIndex: 50 };
 const sidebarBrandArea = { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' };
 const logoIconBox = { width: '38px', height: '38px', backgroundColor: MONO.PRIMARY, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' };
 const brandTitleStyle = { fontSize: '15px', fontWeight: '700', color: MONO.DARKEST, margin: 0, letterSpacing: '-0.3px' };
@@ -48,12 +53,12 @@ const navBtnStyle = (active) => ({
 const userProfileBox = { display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', backgroundColor: MONO.PALE, borderRadius: '12px', border: `1px solid ${MONO.TINT}` };
 const avatarStyle = { width: '34px', height: '34px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 };
 const btnLogoutStyle = { background: 'none', border: 'none', cursor: 'pointer', padding: '6px', borderRadius: '6px' };
-const mainAreaStyle = { flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', backgroundColor: MONO.LIGHTEST };
+const mainAreaStyle = { flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', backgroundColor: MONO.LIGHTEST };
 const topHeaderStyle = { height: '64px', backgroundColor: '#ffffff', borderBottom: `1px solid ${MONO.TINT}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', flexShrink: 0 };
 const pageTitleStyle = { fontSize: '18px', fontWeight: '700', color: MONO.DARKEST, margin: 0 };
 const pageSubtitleStyle = { fontSize: '12px', color: MONO.DARK, margin: '2px 0 0 0' };
 const btnRefresh = { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', backgroundColor: MONO.PALE, border: `1px solid ${MONO.TINT}`, borderRadius: '8px', color: MONO.DARKEST, fontSize: '12px', fontWeight: '500', cursor: 'pointer' };
-const contentViewportStyle = { flex: 1, padding: '20px', overflowY: 'auto', minHeight: 0 };
+const contentViewportStyle = { flex: 1, padding: '20px', overflowY: 'auto', minHeight: 0, height: 'calc(100vh - 64px)' };
 const panelCardStyle = { backgroundColor: '#ffffff', borderRadius: '14px', border: `1px solid ${MONO.TINT}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' };
 const panelHeader = { padding: '14px 18px', borderBottom: `1px solid ${MONO.TINT}`, display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#ffffff' };
 const panelTitle = { fontSize: '15px', fontWeight: '600', color: MONO.DARKEST, margin: 0 };
@@ -82,11 +87,6 @@ const statVal = { fontSize: '20px', fontWeight: '700', color: MONO.DARKEST, marg
 const statUnit = { fontSize: '12px', fontWeight: '400', color: MONO.DARK };
 const statIcon = (bg, color) => ({ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: bg, color: color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 });
 const lotBadge = { fontSize: '11px', fontWeight: '600', backgroundColor: MONO.TINT, color: MONO.DARKEST, padding: '2px 6px', borderRadius: '4px' };
-const stockBadge = (isLow, noLot) => ({
-  display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', padding: '3px 8px', borderRadius: '12px',
-  backgroundColor: noLot ? ALERTS.EXPIRED_BG : (isLow ? ALERTS.WARNING_BG : ALERTS.SUCCESS_BG),
-  color: noLot ? ALERTS.EXPIRED_TEXT : (isLow ? ALERTS.WARNING_TEXT : ALERTS.SUCCESS_TEXT)
-});
 const quickQueryBtn = { padding: '10px 12px', backgroundColor: MONO.PALE, border: `1px solid ${MONO.TINT}`, borderRadius: '8px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: MONO.DARKEST, cursor: 'pointer', transition: 'all 0.2s' };
 const loginOverlayStyle = { minHeight: '100vh', width: '100vw', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: MONO.LIGHTEST, padding: '16px' };
 const loginCardStyle = { width: '100%', maxWidth: '400px', backgroundColor: '#ffffff', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)', border: `1px solid ${MONO.TINT}` };
@@ -118,9 +118,16 @@ const stylesDynamic = `
     z-index: 40;
   }
 
+  .dashboard-scroll-container {
+    height: 100%;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
   @media (max-width: 1024px) {
     .grid-responsive-2 {
       grid-template-columns: 1fr !important;
+      height: auto !important;
     }
     .stats-grid {
       grid-template-columns: repeat(2, 1fr) !important;
@@ -131,24 +138,29 @@ const stylesDynamic = `
     .bottom-tables-grid {
       grid-template-columns: 1fr !important;
     }
+    .chart-card-box {
+      min-height: 280px !important;
+    }
   }
 
   @media (max-width: 768px) {
-    .responsive-sidebar {
-      position: fixed !important;
-      top: 0;
-      left: 0;
-      bottom: 0;
-      z-index: 50;
-      transform: translateX(-100%);
-      transition: transform 0.3s ease-in-out;
-    }
-    .mobile-close-btn {
-      display: block !important;
-    }
-    .mobile-menu-btn {
-      display: flex !important;
-    }
+  .responsive-sidebar {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    height: 100dvh !important; 
+    max-height: 100dvh !important;
+    z-index: 50 !important;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+  }
+  .mobile-close-btn {
+    display: block !important;
+  }
+  .mobile-menu-btn {
+    display: flex !important;
+  }
     .stats-grid {
       grid-template-columns: 1fr !important;
     }
@@ -158,10 +170,26 @@ const stylesDynamic = `
     .refresh-btn-text {
       display: none;
     }
+    .content-viewport-container {
+      padding: 12px !important;
+    }
+    .page-title-text {
+      font-size: 15px !important;
+    }
+    .page-subtitle-text {
+      display: none !important;
+    }
+    .top-header-inner {
+      padding: 0 14px !important;
+    }
+    .chart-card-box {
+      min-height: 260px !important;
+    }
   }
 
   .table-wrapper {
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   ::-webkit-scrollbar {
@@ -296,11 +324,9 @@ export default function App() {
   });
 
   // CHATBOT STATE
-  const [chatMessages, setChatMessages] = useState([
-    { id: 1, sender: 'bot', text: 'สวัสดีครับ ระบบผู้ช่วยจัดการคลังยา LALITA PHARMACY พร้อมให้บริการ สามารถสอบถามข้อมูลสต็อก ยาหมดอายุ การเบิกจ่าย FEFO หรือการรับแจ้งเตือนผ่าน LINE อัตโนมัติทุก 8 โมงเช้าได้เลยครับ', time: '08:00' }
-  ]);
+  const [chatMessages, setChatMessages] = useState(INITIAL_CHAT_MESSAGES);
   const [chatInput, setChatInput] = useState('');
-  const chatEndRef = useRef(null);
+  const chatMessagesBoxRef = useRef(null);
 
   const isAdmin = currentUser?.role === 'admin';
 
@@ -370,8 +396,11 @@ export default function App() {
     }
   }, [currentUser, activeMenu]);
 
+  // SCROLL CHAT MESSAGES ONLY INSIDE CONTAINER
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatMessagesBoxRef.current) {
+      chatMessagesBoxRef.current.scrollTop = chatMessagesBoxRef.current.scrollHeight;
+    }
   }, [chatMessages]);
 
   useEffect(() => {
@@ -444,6 +473,7 @@ export default function App() {
     }
   };
 
+  // LOGOUT WITH CHATBOT RESET
   const handleLogout = () => {
     Swal.fire({
       title: 'ออกจากระบบ',
@@ -458,6 +488,8 @@ export default function App() {
       if (result.isConfirmed) {
         setCurrentUser(null);
         localStorage.removeItem('pharmacy_user');
+        setChatMessages(INITIAL_CHAT_MESSAGES);
+        setChatInput('');
       }
     });
   };
@@ -832,7 +864,7 @@ export default function App() {
     });
   };
 
-  // CHATBOT HANDLE MESSAGE
+  // CHATBOT HANDLE MESSAGE WITH PERMISSION RESTRICTIONS FOR PHARMACIST & COMPLETE LIST RESPONSE
   const handleSendMessage = (textToSend) => {
     const query = (textToSend || chatInput).trim();
     if (!query) return;
@@ -844,66 +876,86 @@ export default function App() {
 
     setTimeout(() => {
       let botReply = '';
+      let replyImage = null;
       const q = query.toLowerCase();
 
-      if (q.includes('line') || q.includes('ไลน์') || q.includes('แจ้งเตือน') || q.includes('8 โมง') || q.includes('8.00') || q.includes('ลงทะเบียน')) {
-        const userLineId = currentUser?.line_user_id || 'ยังไม่ได้ลงทะเบียน';
-        botReply = `📲 ระบบรับข้อความแจ้งเตือนอัตโนมัติผ่าน LINE\n\n` +
-          `สถานะของคุณ (${currentUser.name}): ${userLineId !== 'ยังไม่ได้ลงทะเบียน' ? `✅ ลงทะเบียนแล้ว (${userLineId})` : '⚠️ ยังไม่ได้ระบุ Line ID'}\n\n` +
-          `ขั้นตอนการลงทะเบียน:\n` +
-          `1. เพิ่มเพื่อน LINE Official Account ร้านยา\n` +
-          `2. ส่งข้อความ: REGISTER ${currentUser.username}\n` +
-          `3. ระบบจะบันทึก LINE User ID เข้ากับบัญชีผู้ใช้ทันที\n` +
-          `4. ระบบจะส่งรายงานสรุปยาสต็อกต่ำและยาใกล้หมดอายุให้คุณทุกเช้าเวลา 08:00 น. ครับ`;
+      // CATEGORY CHECK FOR PHARMACIST RESTRICTIONS
+      const isLine = q.includes('line') || q.includes('ไลน์') || q.includes('แจ้งเตือน') || q.includes('8 โมง') || q.includes('8.00') || q.includes('ลงทะเบียน') || q.includes('qr');
+      const isStock = q.includes('สรุปยอด') || q.includes('ส่งคลัง') || q.includes('สต็อก') || q.includes('เหลือ') || q.includes('ขาด') || q.includes('คลัง') || q.includes('ต่ำ');
+      const isExpiry = q.includes('หมดอายุ') || q.includes('exp') || q.includes('ใกล้หมด') || q.includes('เสื่อม');
+      const isFefo = q.includes('fefo') || q.includes('เบิกจ่าย') || q.includes('หน้าร้าน') || q.includes('จ่ายยา') || q.includes('วิธีเบิก');
+      const isPerm = q.includes('สิทธิ์') || q.includes('ผู้ใช้') || q.includes('เพิ่มผู้ใช้') || q.includes('บทบาท') || q.includes('admin') || q.includes('pharmacist');
+      const isGreeting = q.includes('สวัสดี') || q.includes('หวัดดี') || q.includes('hello') || q.includes('hi');
+
+      // PHARMACIST PERMISSION GUARD
+      if (!isAdmin && !(isLine || isStock || isExpiry || isFefo || isPerm || isGreeting)) {
+        botReply = `🔒 **สิทธิ์การใช้งานแชทบอทสำหรับเภสัชกรหน้าร้าน**\n\nท่านมีสิทธิ์สอบถามข้อมูลได้เฉพาะ 5 หัวข้อต่อไปนี้เท่านั้นครับ:\n` +
+          `1. การรับแจ้งเตือน LINE อัตโนมัติ (สแกน QR)\n` +
+          `2. สรุปยอดส่งคลัง / เช็คสต็อกยา\n` +
+          `3. เช็คยาใกล้หมดอายุ\n` +
+          `4. วิธีการเบิกจ่ายยาตามหลัก FEFO\n` +
+          `5. สิทธิ์การใช้งานระบบ Admin / Pharmacist`;
       } 
-      else if (q.includes('มูลค่า') || q.includes('ราคา') || q.includes('สรุปมูลค่า')) {
+      else if (isLine) {
+        const userLineId = currentUser?.line_user_id || 'ยังไม่ได้ลงทะเบียน';
+        botReply = `📲 **ระบบรับข้อความแจ้งเตือนอัตโนมัติผ่าน LINE**\n\n` +
+          `สถานะของคุณ (${currentUser.name}): ${userLineId !== 'ยังไม่ได้ลงทะเบียน' ? `✅ ลงทะเบียนแล้ว (${userLineId})` : '⚠️ ยังไม่ได้ระบุ Line ID'}\n\n` +
+          `ขั้นตอนการรับบริการแจ้งเตือน:\n` +
+          `1. สแกน QR Code ด้านล่างนี้เพื่อเพิ่มเพื่อน LINE Official\n` +
+          `2. พิมพ์ข้อความส่งสัญลักษณ์: REGISTER ${currentUser.username}\n` +
+          `3. ระบบจะบันทึกและส่งรายงานสรุปคลังยาทุกเช้าเวลา 08:00 น. ครับ`;
+        replyImage = 'images/qr.png';
+      } 
+      else if (isAdmin && (q.includes('มูลค่า') || q.includes('ราคา') || q.includes('สรุปมูลค่า'))) {
         botReply = `📊 **สรุปมูลค่าคลังสินค้า**\n\n` +
           `• มูลค่ายาพร้อมขาย (ราคาทุน): **฿${totalCostValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })}**\n` +
           `• มูลค่าราคาขายรวม: **฿${totalSellingValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })}**\n` +
           `• ประมาณการกำไรขั้นต้น: **฿${(totalSellingValue - totalCostValue).toLocaleString('th-TH', { minimumFractionDigits: 2 })}**\n` +
           `• มูลค่ายาหมดอายุ: **฿${totalExpiredCostValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })}**`;
       }
-      else if (q.includes('สต็อก') || q.includes('เหลือ') || q.includes('ขาด') || q.includes('คลัง') || q.includes('ต่ำ')) {
+      else if (isStock) {
+        // FULL LIST OF LOW STOCK ITEMS (NO LIMIT / RANKING)
         const lowStockDetails = lowStockItemsList.map(item => `• ${item.product_code} : ${item.product_name} (คงเหลือ ${item.total_quantity ?? item.quantity ?? 0} ${item.unit} / เกณฑ์ ≤ ${item.min_stock ?? 10})`).join('\n');
         
-        botReply = `📦 **สรุปรายการยาสต็อกต่ำกว่าเกณฑ์**\n\n` +
+        botReply = `📦 **สรุปยอดส่งคลัง / รายการยาสต็อกต่ำกว่าเกณฑ์**\n\n` +
           `• รายการยาทั้งหมด: **${products.length} รายการ**\n` +
           `• ยาที่ต่ำกว่าเกณฑ์เตือน: **${lowStockItemsList.length} รายการ**\n\n` +
           (lowStockItemsList.length > 0 
-            ? `⚠️ **รายชื่อยาที่ต้องสั่งซื้อเพิ่ม:**\n${lowStockDetails}` 
+            ? `⚠️ **รายชื่อยาที่ต้องสั่งซื้อเพิ่ม/ส่งคลังทั้งหมด:**\n${lowStockDetails}` 
             : `✅ สต็อกอยู่ในระดับปกติทุกรายการ ไม่มีรายการขาดคลังครับ`);
       } 
-      else if (q.includes('หมดอายุ') || q.includes('exp') || q.includes('ใกล้หมด') || q.includes('เสื่อม')) {
-        const expiringDetails = expiringLotsList.slice(0, 5).map(lot => `• ${lot.product_code} : ${lot.product_name} (ล็อต ${lot.lot_number} | EXP: ${formatDate(lot.expiry_date)} | เหลือ ${lot.days_left} วัน)`).join('\n');
+      else if (isExpiry) {
+        // FULL LIST OF EXPIRING ITEMS (NO SLICE / RANKING)
+        const expiringDetails = expiringLotsList.map(lot => `• ${lot.product_code} : ${lot.product_name} (ล็อต ${lot.lot_number} | EXP: ${formatDate(lot.expiry_date)} | เหลือ ${lot.days_left} วัน)`).join('\n');
         
         if (!isAdmin) {
           botReply = `⏳ **รายการยาใกล้หมดอายุ**\n\n` +
             (expiringLotsList.length > 0 
-              ? expiringDetails 
+              ? `⚠️ **รายการยาใกล้หมดอายุทั้งหมด (${expiringLotsList.length} ล็อต):**\n${expiringDetails}` 
               : `🎉 ไม่พบรายการยาที่จะหมดอายุใน ${expiryThreshold} วันนี้ครับ`);
         } else {
           botReply = `⏳ **รายงานยาล็อตใกล้หมดอายุและหมดอายุแล้ว**\n\n` +
             `• หมดอายุแล้ว (ห้ามจ่าย): **${expiredLotsList.length} ล็อต** (รวม ฿${totalExpiredCostValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })})\n` +
             `• ใกล้หมดอายุ (ภายใน ${expiryThreshold} วัน): **${expiringLotsList.length} ล็อต** (รวม ฿${totalExpiringCostValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })})\n\n` +
             (expiringLotsList.length > 0 
-              ? `⚠️ **รายการใกล้หมดอายุ 5 อันดับแรก (ควรเร่งระบาย):**\n${expiringDetails}` 
+              ? `⚠️ **รายการใกล้หมดอายุทั้งหมด (ควรเร่งระบาย):**\n${expiringDetails}` 
               : `🎉 ไม่พบรายการยาที่จะหมดอายุใน ${expiryThreshold} วันนี้ครับ`);
         }
       } 
-      else if (q.includes('fefo') || q.includes('เบิกจ่าย') || q.includes('หน้าร้าน') || q.includes('จ่ายยา') || q.includes('วิธีเบิก')) {
+      else if (isFefo) {
         botReply = `💡 **การเบิกจ่ายยาตามหลัก FEFO (First Expired, First Out)**\n\n` +
           `1. ระบบจะเลือกยาล็อตที่วันหมดอายุใกล้ที่สุดให้อัตโนมัติ\n` +
           `2. ยาล็อตที่หมดอายุแล้ว ระบบจะระงับการเบิกจ่ายทันทีเพื่อความปลอดภัย\n` +
           `3. ไปที่เมนู 'เบิกจ่ายยาหน้าร้าน' -> พิมพ์ค้นหาชื่อยา -> ตรวจสอบล็อต FEFO -> ระบุจำนวน -> กด 'ยืนยันการเบิกจ่าย' เพื่อตัดสต็อกทันทีครับ`;
       } 
-      else if (q.includes('สิทธิ์') || q.includes('ผู้ใช้') || q.includes('เพิ่มผู้ใช้') || q.includes('บทบาท') || q.includes('admin') || q.includes('pharmacist')) {
+      else if (isPerm) {
         botReply = `🔒 **การกำหนดสิทธิ์ผู้ใช้งานระบบ**\n\n` +
           `• **Admin:** จัดการคลังสินค้า, บันทึกรับยา, ปรับราคา/เกณฑ์เตือน, ดูสถิติมูลค่า และกำหนดสิทธิ์ผู้ใช้งาน\n` +
-          `• **Pharmacist:** ทำรายการเบิกจ่ายยาหน้าร้านตามหลัก FEFO และใช้งานระบบถามตอบข้อมูลสต็อก\n` +
+          `• **Pharmacist:** ทำรายการเบิกจ่ายยาหน้าร้านตามหลัก FEFO และถามตอบแชทบอท (จำกัด 5 หัวข้อสำคัญ)\n` +
           `• สามารถเพิ่ม/แก้ไขสิทธิ์ผู้ใช้งานได้ที่เมนู 'กำหนดสิทธิ์ผู้ใช้งาน' ครับ`;
       } 
-      else if (q.includes('สวัสดี') || q.includes('หวัดดี') || q.includes('hello') || q.includes('hi')) {
-        botReply = `สวัสดีครับคุณ **${currentUser.name}**! ต้องการสอบถามข้อมูลสต็อกยา รายการหมดอายุ หรือบริการแจ้งเตือนผ่าน LINE เพิ่มเติมไหมครับ?`;
+      else if (isGreeting) {
+        botReply = `สวัสดีครับคุณ **${currentUser.name}**! ต้องการสอบถามข้อมูลสต็อก ยาหมดอายุ การเบิกจ่าย FEFO สิทธิ์ผู้ใช้งาน หรือบริการแจ้งเตือนผ่าน LINE เพิ่มเติมไหมครับ?`;
       } 
       else {
         botReply = `ขออภัยครับ ไม่พบข้อมูลที่ตรงกับคำถาม "${query}"\n\nคุณสามารถเลือกคลิกหัวข้อในเมนู **คำถามที่พบบ่อย** ด้านขวาเพื่อดูข้อมูลได้อย่างรวดเร็วครับ`;
@@ -913,6 +965,7 @@ export default function App() {
         id: Date.now() + 1, 
         sender: 'bot', 
         text: botReply, 
+        image: replyImage,
         time: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) 
       };
       setChatMessages(prev => [...prev, botMsg]);
@@ -1283,10 +1336,11 @@ export default function App() {
 
       {/* SIDEBAR NAVIGATION */}
       <aside style={{
-        ...sidebarStyle,
-        transform: isMobileMenuOpen ? 'translateX(0)' : undefined
-      }} className="responsive-sidebar">
-        <div>
+          ...sidebarStyle,
+          transform: isMobileMenuOpen ? 'translateX(0)' : undefined
+        }} className="responsive-sidebar">
+
+        <div style={{ flex: 1, overflowY: 'auto', marginBottom: '12px' }}>
           <div style={sidebarBrandArea}>
             <div style={logoIconBox}><Pill size={22} color="#ffffff" /></div>
             <div>
@@ -1393,7 +1447,7 @@ export default function App() {
                 {activeMenu === 'dispense' && 'แสดงล็อตยาตามหลัก FEFO อัตโนมัติ'}
                 {activeMenu === 'inventory' && 'รับสินค้าเข้าสต็อก ตรวจสอบรายการยา และล็อตเบิกจ่ายที่พร้อมขาย'}
                 {activeMenu === 'dashboard' && 'สรุปภาพรวมมูลค่า ยาหมดอายุ และกราฟสถิติคลังยา'}
-                {activeMenu === 'chatbot' && 'ถามตอบข้อมูลสต็อก ยาใกล้หมดอายุ บริการรับแจ้งเตือน LINE 8 โมงเช้า และคู่มือระบบ'}
+                {activeMenu === 'chatbot' && (isAdmin ? 'ถามตอบข้อมูลคลังยาแบบเต็มรูปแบบ' : 'ถามตอบสิทธิ์เฉพาะเภสัชกรหน้าร้าน (LINE, สรุปยอดส่งคลัง, ยาใกล้หมดอายุ, FEFO, สิทธิ์ผู้ใช้)')}
                 {activeMenu === 'permissions' && 'เพิ่มบัญชีผู้ใช้งาน ดึงสิทธิ์จากตาราง users และจัดการ LINE User ID สำหรับแจ้งเตือน'}
               </p>
             </div>
@@ -1405,8 +1459,8 @@ export default function App() {
           </button>
         </header>
 
-        {/* MAIN CONTAINER */}
-        <main style={contentViewportStyle}>
+        {/* MAIN CONTENT VIEWPORT */}
+        <main className="content-viewport-container" style={contentViewportStyle}>
 
           {/* 1. DISPENSE VIEW */}
           {activeMenu === 'dispense' && !isAdmin && (
@@ -1580,7 +1634,7 @@ export default function App() {
                     </form>
                   ) : (
                     <div style={{ textAlign: 'center', padding: '48px 20px', backgroundColor: MONO.PALE, borderRadius: '10px', border: `1px dashed ${MONO.TINT}`, color: MONO.DARK, fontSize: '15px' }}>
-                      🔍  ค้นหารายการยา เพื่อทำรายการเบิกจ่ายหน้าร้าน
+                      🔍 ค้นหารายการยา เพื่อทำรายการเบิกจ่ายหน้าร้าน
                     </div>
                   )}
                 </div>
@@ -1667,285 +1721,289 @@ export default function App() {
 
           {/* 2. DASHBOARD VIEW */}
           {activeMenu === 'dashboard' && isAdmin && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', height: '100%', overflowY: 'auto' }}>
-              
-              <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
-                <div style={statCardStyle}>
-                  <div>
-                    <p style={statLabel}>มูลค่ายาหมดอายุ (สูญเสีย)</p>
-                    <h3 style={{ ...statVal, color: ALERTS.EXPIRED_TEXT }}>
-                      ฿{totalExpiredCostValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-                    </h3>
-                    <p style={{ fontSize: '11px', color: MONO.DARK, margin: '4px 0 0 0', fontWeight: '500' }}>
-                      รวม {expiredLotsList.length} ล็อตหมดอายุ
-                    </p>
-                  </div>
-                  <div style={statIcon(ALERTS.EXPIRED_BG, ALERTS.EXPIRED_TEXT)}><AlertOctagon size={20} /></div>
-                </div>
-
-                <div style={statCardStyle}>
-                  <div>
-                    <p style={statLabel}>ทุนใกล้หมดอายุ (&lt;{expiryThreshold} วัน)</p>
-                    <h3 style={{ ...statVal, color: ALERTS.WARNING_TEXT }}>
-                      ฿{totalExpiringCostValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-                    </h3>
-                    <p style={{ fontSize: '11px', color: MONO.DARK, margin: '4px 0 0 0', fontWeight: '500' }}>รวม {expiringLotsList.length} ล็อตเสี่ยง</p>
-                  </div>
-                  <div style={statIcon(ALERTS.WARNING_BG, ALERTS.WARNING_TEXT)}><CalendarX size={20} /></div>
-                </div>
-
-                <div style={statCardStyle}>
-                  <div>
-                    <p style={statLabel}>มูลค่าทุนคลังยาที่พร้อมขาย</p>
-                    <h3 style={{ ...statVal, color: MONO.DEEP }}>
-                      ฿{totalCostValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-                    </h3>
-                    <p style={{ fontSize: '11px', color: MONO.DARK, margin: '4px 0 0 0', fontWeight: '500' }}>มูลค่าขาย: ฿{totalSellingValue.toLocaleString()}</p>
-                  </div>
-                  <div style={statIcon(ALERTS.SUCCESS_BG, ALERTS.SUCCESS_TEXT)}><DollarSign size={20} /></div>
-                </div>
-
-                <div style={statCardStyle}>
-                  <div>
-                    <p style={statLabel}>ยาต้องสั่งเติม (ต่ำกว่าเกณฑ์)</p>
-                    <h3 style={statVal}>
-                      {lowStockCount} <span style={statUnit}>รายการ</span>
-                    </h3>
-                    <p style={{ fontSize: '11px', color: MONO.DARK, margin: '4px 0 0 0', fontWeight: '500' }}>เกณฑ์เตือนสต็อกต่ำ</p>
-                  </div>
-                  <div style={statIcon(ALERTS.INFO_BG, ALERTS.INFO_TEXT)}>
-                    <AlertTriangle size={20} />
-                  </div>
-                </div>
-              </div>
-
-              <div className="charts-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', minHeight: 0 }}>
-                <div style={{ ...panelCardStyle, padding: '16px 18px', overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                    <BarChart3 size={18} color={MONO.PRIMARY} />
-                    <h3 style={{ ...panelTitle, fontSize: '14px' }}>กราฟสัดส่วนรูปแบบยาในคลัง</h3>
-                  </div>
-                  
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', paddingRight: '4px' }}>
-                    {Object.keys(productTypeStats).length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '24px', color: MONO.DARK, fontSize: '13px' }}>ไม่มีข้อมูลสต็อก</div>
-                    ) : (
-                      Object.entries(productTypeStats).map(([typeKey, stat], idx) => {
-                        const percent = totalQuantity > 0 ? ((stat.totalQty / totalQuantity) * 100).toFixed(1) : '0.0';
-                        const barColor = chartGradColors[idx % chartGradColors.length];
-                        return (
-                          <div key={typeKey} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: MONO.DARKEST }}>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                {renderTypeBadge(typeKey)} 
-                                <span style={{ color: MONO.DARK, fontSize: '11px' }}>({stat.count})</span>
-                              </span>
-                              <span style={{ fontWeight: '600', color: MONO.DARKEST, fontSize: '12px' }}>
-                                {stat.totalQty.toLocaleString()} ชิ้น ({percent}%)
-                              </span>
-                            </div>
-                            <div style={{ height: '8px', width: '100%', backgroundColor: MONO.LIGHTEST, borderRadius: '4px', overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${percent}%`, backgroundColor: barColor, borderRadius: '4px', transition: 'width 0.5s ease' }} />
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-
-                <div style={{ ...panelCardStyle, padding: '16px 18px', overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                    <PieChart size={18} color={MONO.DEEP} />
-                    <h3 style={{ ...panelTitle, fontSize: '14px' }}>จำนวนยาแยกตามตำแหน่งจัดเก็บ</h3>
-                  </div>
-
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', paddingRight: '4px' }}>
-                    {Object.keys(locationStats).length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '24px', color: MONO.DARK, fontSize: '13px' }}>ไม่มีข้อมูลตำแหน่งจัดเก็บ</div>
-                    ) : (
-                      Object.entries(locationStats).map(([locName, stat], idx) => {
-                        const percent = totalQuantity > 0 ? ((stat.totalQty / totalQuantity) * 100).toFixed(1) : '0.0';
-                        const barColor = chartGradColors[(idx + 2) % chartGradColors.length];
-                        return (
-                          <div key={locName} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: MONO.DARKEST }}>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span style={{ ...locBadge, fontSize: '11px' }}><MapPin size={11} /> {locName}</span>
-                                <span style={{ color: MONO.DARK, fontSize: '11px' }}>({stat.count})</span>
-                              </span>
-                              <span style={{ fontWeight: '600', color: MONO.DARKEST, fontSize: '12px' }}>
-                                {stat.totalQty.toLocaleString()} ชิ้น ({percent}%)
-                              </span>
-                            </div>
-                            <div style={{ height: '8px', width: '100%', backgroundColor: MONO.LIGHTEST, borderRadius: '4px', overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${percent}%`, backgroundColor: barColor, borderRadius: '4px', transition: 'width 0.5s ease' }} />
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-
-                <div style={{ ...panelCardStyle, padding: '16px 18px', overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <AlertOctagon size={18} color={ALERTS.EXPIRED_TEXT} />
-                      <h3 style={{ ...panelTitle, fontSize: '14px' }}>ยาล็อตที่หมดอายุแล้วในคลัง</h3>
+            <div className="dashboard-scroll-container">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                
+                {/* STAT CARDS */}
+                <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', flexShrink: 0 }}>
+                  <div style={statCardStyle}>
+                    <div>
+                      <p style={statLabel}>มูลค่ายาหมดอายุ (สูญเสีย)</p>
+                      <h3 style={{ ...statVal, color: ALERTS.EXPIRED_TEXT }}>
+                        ฿{totalExpiredCostValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                      </h3>
+                      <p style={{ fontSize: '11px', color: MONO.DARK, margin: '4px 0 0 0', fontWeight: '500' }}>
+                        รวม {expiredLotsList.length} ล็อตหมดอายุ
+                      </p>
                     </div>
-                    <span style={{ fontSize: '11px', fontWeight: '600', color: ALERTS.EXPIRED_TEXT, backgroundColor: ALERTS.EXPIRED_BG, padding: '2px 8px', borderRadius: '12px' }}>
-                      {expiredLotsList.length} ล็อต
-                    </span>
+                    <div style={statIcon(ALERTS.EXPIRED_BG, ALERTS.EXPIRED_TEXT)}><AlertOctagon size={20} /></div>
                   </div>
 
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', paddingRight: '4px' }}>
-                    {expiredChartList.length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '32px 12px', color: ALERTS.SUCCESS_TEXT, fontSize: '13px', fontWeight: '600' }}>
-                        🎉 ไม่พบยาล็อตหมดอายุในคลัง
+                  <div style={statCardStyle}>
+                    <div>
+                      <p style={statLabel}>ทุนใกล้หมดอายุ (&lt;{expiryThreshold} วัน)</p>
+                      <h3 style={{ ...statVal, color: ALERTS.WARNING_TEXT }}>
+                        ฿{totalExpiringCostValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                      </h3>
+                      <p style={{ fontSize: '11px', color: MONO.DARK, margin: '4px 0 0 0', fontWeight: '500' }}>รวม {expiringLotsList.length} ล็อตเสี่ยง</p>
+                    </div>
+                    <div style={statIcon(ALERTS.WARNING_BG, ALERTS.WARNING_TEXT)}><CalendarX size={20} /></div>
+                  </div>
+
+                  <div style={statCardStyle}>
+                    <div>
+                      <p style={statLabel}>มูลค่าทุนคลังยาที่พร้อมขาย</p>
+                      <h3 style={{ ...statVal, color: MONO.DEEP }}>
+                        ฿{totalCostValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                      </h3>
+                      <p style={{ fontSize: '11px', color: MONO.DARK, margin: '4px 0 0 0', fontWeight: '500' }}>มูลค่าขาย: ฿{totalSellingValue.toLocaleString()}</p>
+                    </div>
+                    <div style={statIcon(ALERTS.SUCCESS_BG, ALERTS.SUCCESS_TEXT)}><DollarSign size={20} /></div>
+                  </div>
+
+                  <div style={statCardStyle}>
+                    <div>
+                      <p style={statLabel}>ยาต้องสั่งเติม (ต่ำกว่าเกณฑ์)</p>
+                      <h3 style={statVal}>
+                        {lowStockCount} <span style={statUnit}>รายการ</span>
+                      </h3>
+                      <p style={{ fontSize: '11px', color: MONO.DARK, margin: '4px 0 0 0', fontWeight: '500' }}>เกณฑ์เตือนสต็อกต่ำ</p>
+                    </div>
+                    <div style={statIcon(ALERTS.INFO_BG, ALERTS.INFO_TEXT)}>
+                      <AlertTriangle size={20} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* GRAPH & CHART CARDS */}
+                <div className="charts-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', flexShrink: 0 }}>
+                  <div className="chart-card-box" style={{ ...panelCardStyle, padding: '16px 18px', height: '280px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                      <BarChart3 size={18} color={MONO.PRIMARY} />
+                      <h3 style={{ ...panelTitle, fontSize: '14px' }}>สัดส่วนรูปแบบยาในคลัง</h3>
+                    </div>
+                    
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {Object.keys(productTypeStats).length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '24px', color: MONO.DARK, fontSize: '13px' }}>ไม่มีข้อมูลสต็อก</div>
+                      ) : (
+                        Object.entries(productTypeStats).map(([typeKey, stat], idx) => {
+                          const percent = totalQuantity > 0 ? ((stat.totalQty / totalQuantity) * 100).toFixed(1) : '0.0';
+                          const barColor = chartGradColors[idx % chartGradColors.length];
+                          return (
+                            <div key={typeKey} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: MONO.DARKEST }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  {renderTypeBadge(typeKey)} 
+                                  <span style={{ color: MONO.DARK, fontSize: '11px' }}>({stat.count})</span>
+                                </span>
+                                <span style={{ fontWeight: '600', color: MONO.DARKEST, fontSize: '12px' }}>
+                                  {stat.totalQty.toLocaleString()} ชิ้น ({percent}%)
+                                </span>
+                              </div>
+                              <div style={{ height: '8px', width: '100%', backgroundColor: MONO.LIGHTEST, borderRadius: '4px', overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${percent}%`, backgroundColor: barColor, borderRadius: '4px', transition: 'width 0.5s ease' }} />
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="chart-card-box" style={{ ...panelCardStyle, padding: '16px 18px', height: '280px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                      <PieChart size={18} color={MONO.DEEP} />
+                      <h3 style={{ ...panelTitle, fontSize: '14px' }}>จำนวนยาแยกตามตำแหน่งจัดเก็บ</h3>
+                    </div>
+
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {Object.keys(locationStats).length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '24px', color: MONO.DARK, fontSize: '13px' }}>ไม่มีข้อมูลตำแหน่งจัดเก็บ</div>
+                      ) : (
+                        Object.entries(locationStats).map(([locName, stat], idx) => {
+                          const percent = totalQuantity > 0 ? ((stat.totalQty / totalQuantity) * 100).toFixed(1) : '0.0';
+                          const barColor = chartGradColors[(idx + 2) % chartGradColors.length];
+                          return (
+                            <div key={locName} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: MONO.DARKEST }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ ...locBadge, fontSize: '11px' }}><MapPin size={11} /> {locName}</span>
+                                  <span style={{ color: MONO.DARK, fontSize: '11px' }}>({stat.count})</span>
+                                </span>
+                                <span style={{ fontWeight: '600', color: MONO.DARKEST, fontSize: '12px' }}>
+                                  {stat.totalQty.toLocaleString()} ชิ้น ({percent}%)
+                                </span>
+                              </div>
+                              <div style={{ height: '8px', width: '100%', backgroundColor: MONO.LIGHTEST, borderRadius: '4px', overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${percent}%`, backgroundColor: barColor, borderRadius: '4px', transition: 'width 0.5s ease' }} />
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="chart-card-box" style={{ ...panelCardStyle, padding: '16px 18px', height: '280px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <AlertOctagon size={18} color={ALERTS.EXPIRED_TEXT} />
+                        <h3 style={{ ...panelTitle, fontSize: '14px' }}>ยาล็อตที่หมดอายุแล้วในคลัง</h3>
                       </div>
-                    ) : (
-                      expiredChartList.map((item, idx) => {
-                        const barWidthPercentage = Math.min(100, Math.max(8, (item.totalCost / maxExpiredCost) * 100)).toFixed(1);
-                        return (
-                          <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
-                              <span style={{ fontWeight: '600', color: MONO.DARKEST, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px' }}>
-                                <span style={codeBadge}>{item.code}</span> {item.name}
-                              </span>
-                              <span style={{ fontWeight: '600', color: ALERTS.EXPIRED_TEXT, fontSize: '12px' }}>
-                                {item.totalQty} {item.unit} (฿{item.totalCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })})
-                              </span>
+                      <span style={{ fontSize: '11px', fontWeight: '600', color: ALERTS.EXPIRED_TEXT, backgroundColor: ALERTS.EXPIRED_BG, padding: '2px 8px', borderRadius: '12px' }}>
+                        {expiredLotsList.length} ล็อต
+                      </span>
+                    </div>
+
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {expiredChartList.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '32px 12px', color: ALERTS.SUCCESS_TEXT, fontSize: '13px', fontWeight: '600' }}>
+                          🎉 ไม่พบยาล็อตหมดอายุในคลัง
+                        </div>
+                      ) : (
+                        expiredChartList.map((item, idx) => {
+                          const barWidthPercentage = Math.min(100, Math.max(8, (item.totalCost / maxExpiredCost) * 100)).toFixed(1);
+                          return (
+                            <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                                <span style={{ fontWeight: '600', color: MONO.DARKEST, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px' }}>
+                                  <span style={codeBadge}>{item.code}</span> {item.name}
+                                </span>
+                                <span style={{ fontWeight: '600', color: ALERTS.EXPIRED_TEXT, fontSize: '12px' }}>
+                                  {item.totalQty} {item.unit} (฿{item.totalCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })})
+                                </span>
+                              </div>
+                              <div style={{ height: '8px', width: '100%', backgroundColor: MONO.LIGHTEST, borderRadius: '4px', overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${barWidthPercentage}%`, backgroundColor: ALERTS.EXPIRED_TEXT, borderRadius: '4px', transition: 'width 0.5s ease' }} />
+                              </div>
                             </div>
-                            <div style={{ height: '8px', width: '100%', backgroundColor: MONO.LIGHTEST, borderRadius: '4px', overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${barWidthPercentage}%`, backgroundColor: ALERTS.EXPIRED_TEXT, borderRadius: '4px', transition: 'width 0.5s ease' }} />
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
                 </div>
 
-              </div>
-
-              <div className="bottom-tables-grid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '14px', minHeight: 0 }}>
-                <div style={{ ...panelCardStyle, padding: '16px 18px', overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <CalendarX size={18} color={ALERTS.WARNING_TEXT} />
-                      <h3 style={{ ...panelTitle, fontSize: '14px' }}>ล็อตยาใกล้หมดอายุ (&lt; {expiryThreshold} วัน)</h3>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontSize: '12px', color: MONO.DARK, fontWeight: '500' }}>ระยะเวลา:</span>
-                      <select 
-                        value={expiryThreshold} 
-                        onChange={(e) => setExpiryThreshold(Number(e.target.value))}
-                        style={{ ...selectStyle, height: '30px', padding: '0 8px', fontSize: '12px', width: 'auto', cursor: 'pointer', border: `1px solid ${MONO.TINT}`, borderRadius: '6px' }}
-                      >
-                        <option value={30}>30 วัน</option>
-                        <option value={60}>60 วัน</option>
-                        <option value={90}>90 วัน</option>
-                        <option value={180}>180 วัน</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div style={{ flex: 1, overflowY: 'auto' }}>
-                    {expiringLotsList.length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '32px 12px', color: ALERTS.SUCCESS_TEXT, fontSize: '13px', fontWeight: '600' }}>
-                        🎉 ไม่มีล็อตยาที่จะหมดอายุใน {expiryThreshold} วันนี้
+                {/* TABLES BOTTOM */}
+                <div className="bottom-tables-grid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '14px', flexShrink: 0 }}>
+                  <div style={{ ...panelCardStyle, padding: '16px 18px', height: '320px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <CalendarX size={18} color={ALERTS.WARNING_TEXT} />
+                        <h3 style={{ ...panelTitle, fontSize: '14px' }}>ล็อตยาใกล้หมดอายุ (&lt; {expiryThreshold} วัน)</h3>
                       </div>
-                    ) : (
-                      <div className="table-wrapper">
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                          <thead style={{ position: 'sticky', top: 0, backgroundColor: MONO.PALE, zIndex: 2 }}>
-                            <tr style={thRowStyle}>
-                              <th style={thStyle}>รหัส / ชื่อยา</th>
-                              <th style={thStyle}>เลขล็อต</th>
-                              <th style={thStyle}>วันหมดอายุ (EXP)</th>
-                              <th style={thStyle}>คงเหลือ</th>
-                              <th style={thStyle}>มูลค่าทุน</th>
-                              <th style={thStyle}>สถานะ</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {expiringLotsList.map((lot, idx) => (
-                              <tr key={idx} style={trStyle}>
-                                <td style={tdStyle}>
-                                  <span style={codeBadge}>{lot.product_code}</span>
-                                  <div style={{ fontWeight: '600', color: MONO.DARKEST, marginTop: '2px' }}>{lot.product_name}</div>
-                                </td>
-                                <td style={tdStyle}><span style={lotBadge}>{lot.lot_number}</span></td>
-                                <td style={tdStyle}>{formatDate(lot.expiry_date)}</td>
-                                <td style={tdStyle}>{lot.quantity} {lot.unit}</td>
-                                <td style={tdStyle}>฿{lot.total_cost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
-                                <td style={tdStyle}>
-                                  <span style={{ fontSize: '11px', fontWeight: '600', color: lot.days_left <= 30 ? ALERTS.EXPIRED_TEXT : ALERTS.WARNING_TEXT }}>
-                                    เหลือ {lot.days_left} วัน
-                                  </span>
-                                </td>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '12px', color: MONO.DARK, fontWeight: '500' }}>ระยะเวลา:</span>
+                        <select 
+                          value={expiryThreshold} 
+                          onChange={(e) => setExpiryThreshold(Number(e.target.value))}
+                          style={{ ...selectStyle, height: '30px', padding: '0 8px', fontSize: '12px', width: 'auto', cursor: 'pointer', border: `1px solid ${MONO.TINT}`, borderRadius: '6px' }}
+                        >
+                          <option value={30}>30 วัน</option>
+                          <option value={60}>60 วัน</option>
+                          <option value={90}>90 วัน</option>
+                          <option value={180}>180 วัน</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div style={{ flex: 1, overflowY: 'auto' }}>
+                      {expiringLotsList.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '32px 12px', color: ALERTS.SUCCESS_TEXT, fontSize: '13px', fontWeight: '600' }}>
+                          🎉 ไม่มีล็อตยาที่จะหมดอายุใน {expiryThreshold} วันนี้
+                        </div>
+                      ) : (
+                        <div className="table-wrapper">
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                            <thead style={{ position: 'sticky', top: 0, backgroundColor: MONO.PALE, zIndex: 2 }}>
+                              <tr style={thRowStyle}>
+                                <th style={thStyle}>รหัส / ชื่อยา</th>
+                                <th style={thStyle}>เลขล็อต</th>
+                                <th style={thStyle}>วันหมดอายุ (EXP)</th>
+                                <th style={thStyle}>คงเหลือ</th>
+                                <th style={thStyle}>มูลค่าทุน</th>
+                                <th style={thStyle}>สถานะ</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div style={{ ...panelCardStyle, padding: '16px 18px', overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <AlertTriangle size={18} color={ALERTS.WARNING_TEXT} />
-                      <h3 style={{ ...panelTitle, fontSize: '14px' }}>รายการยาที่ต้องสั่งซื้อเพิ่ม (Low Stock)</h3>
-                    </div>
-                    <span style={{ fontSize: '11px', fontWeight: '600', color: ALERTS.WARNING_TEXT, backgroundColor: ALERTS.WARNING_BG, padding: '2px 8px', borderRadius: '12px' }}>
-                      {lowStockItemsList.length} รายการ
-                    </span>
-                  </div>
-
-                  <div style={{ flex: 1, overflowY: 'auto' }}>
-                    {lowStockItemsList.length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '32px 12px', color: ALERTS.SUCCESS_TEXT, fontSize: '13px', fontWeight: '600' }}>
-                        ✅ สต็อกยาอยู่ในระดับปกติทุกรายการ
-                      </div>
-                    ) : (
-                      <div className="table-wrapper">
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                          <thead style={{ position: 'sticky', top: 0, backgroundColor: MONO.PALE, zIndex: 2 }}>
-                            <tr style={thRowStyle}>
-                              <th style={thStyle}>รหัส / ชื่อยา</th>
-                              <th style={thStyle}>ตำแหน่ง</th>
-                              <th style={thStyle}>คงเหลือ</th>
-                              <th style={thStyle}>เกณฑ์เตือน</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {lowStockItemsList.map((item) => {
-                              const qty = Number(item.total_quantity ?? 0);
-                              const minStock = Number(item.min_stock ?? 10);
-                              return (
-                                <tr key={item.product_id || item.id || item.product_code} style={trStyle}>
+                            </thead>
+                            <tbody>
+                              {expiringLotsList.map((lot, idx) => (
+                                <tr key={idx} style={trStyle}>
                                   <td style={tdStyle}>
-                                    <span style={codeBadge}>{item.product_code}</span>
-                                    <div style={{ fontWeight: '600', color: MONO.DARKEST, marginTop: '2px' }}>{item.product_name}</div>
+                                    <span style={codeBadge}>{lot.product_code}</span>
+                                    <div style={{ fontWeight: '600', color: MONO.DARKEST, marginTop: '2px' }}>{lot.product_name}</div>
                                   </td>
-                                  <td style={tdStyle}><span style={locBadge}><MapPin size={11} /> {item.location || 'ตู้ A1'}</span></td>
+                                  <td style={tdStyle}><span style={lotBadge}>{lot.lot_number}</span></td>
+                                  <td style={tdStyle}>{formatDate(lot.expiry_date)}</td>
+                                  <td style={tdStyle}>{lot.quantity} {lot.unit}</td>
+                                  <td style={tdStyle}>฿{lot.total_cost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
                                   <td style={tdStyle}>
-                                    <span style={{ fontWeight: '700', color: qty === 0 ? ALERTS.EXPIRED_TEXT : ALERTS.WARNING_TEXT }}>
-                                      {qty} {item.unit}
+                                    <span style={{ fontSize: '11px', fontWeight: '600', color: lot.days_left <= 30 ? ALERTS.EXPIRED_TEXT : ALERTS.WARNING_TEXT }}>
+                                      เหลือ {lot.days_left} วัน
                                     </span>
                                   </td>
-                                  <td style={tdStyle}>≤ {minStock} {item.unit}</td>
                                 </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ ...panelCardStyle, padding: '16px 18px', height: '320px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <AlertTriangle size={18} color={ALERTS.WARNING_TEXT} />
+                        <h3 style={{ ...panelTitle, fontSize: '14px' }}>รายการยาที่ต้องสั่งซื้อเพิ่ม (Low Stock)</h3>
                       </div>
-                    )}
+                      <span style={{ fontSize: '11px', fontWeight: '600', color: ALERTS.WARNING_TEXT, backgroundColor: ALERTS.WARNING_BG, padding: '2px 8px', borderRadius: '12px' }}>
+                        {lowStockItemsList.length} รายการ
+                      </span>
+                    </div>
+
+                    <div style={{ flex: 1, overflowY: 'auto' }}>
+                      {lowStockItemsList.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '32px 12px', color: ALERTS.SUCCESS_TEXT, fontSize: '13px', fontWeight: '600' }}>
+                          ✅ สต็อกยาอยู่ในระดับปกติทุกรายการ
+                        </div>
+                      ) : (
+                        <div className="table-wrapper">
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                            <thead style={{ position: 'sticky', top: 0, backgroundColor: MONO.PALE, zIndex: 2 }}>
+                              <tr style={thRowStyle}>
+                                <th style={thStyle}>รหัส / ชื่อยา</th>
+                                <th style={thStyle}>ตำแหน่ง</th>
+                                <th style={thStyle}>คงเหลือ</th>
+                                <th style={thStyle}>เกณฑ์เตือน</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {lowStockItemsList.map((item) => {
+                                const qty = Number(item.total_quantity ?? 0);
+                                const minStock = Number(item.min_stock ?? 10);
+                                return (
+                                  <tr key={item.product_id || item.id || item.product_code} style={trStyle}>
+                                    <td style={tdStyle}>
+                                      <span style={codeBadge}>{item.product_code}</span>
+                                      <div style={{ fontWeight: '600', color: MONO.DARKEST, marginTop: '2px' }}>{item.product_name}</div>
+                                    </td>
+                                    <td style={tdStyle}><span style={locBadge}><MapPin size={11} /> {item.location || 'ตู้ A1'}</span></td>
+                                    <td style={tdStyle}>
+                                      <span style={{ fontWeight: '700', color: qty === 0 ? ALERTS.EXPIRED_TEXT : ALERTS.WARNING_TEXT }}>
+                                        {qty} {item.unit}
+                                      </span>
+                                    </td>
+                                    <td style={tdStyle}>≤ {minStock} {item.unit}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -2165,14 +2223,14 @@ export default function App() {
                     type="submit" 
                     style={{ 
                       ...btnSubmit, 
-                      width: '100%',             /* ขยายเต็มความกว้างของฟอร์ม */
-                      padding: '14px 20px',      /* เพิ่มความสูงและพื้นที่คลิก */
-                      fontSize: '16px',          /* ปรับขนาดตัวอักษรให้ใหญ่ขึ้น */
-                      fontWeight: '600',         /* ทำตัวหนา */
-                      display: 'flex',           /* จัดเรียง ไอคอน + ข้อความ */
+                      width: '100%',
+                      padding: '14px 20px',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      display: 'flex',
                       alignItems: 'center', 
                       justifyContent: 'center', 
-                      gap: '8px',                /* ระยะห่างระหว่างไอคอนกับข้อความ */
+                      gap: '8px',
                       marginTop: '16px',
                       cursor: 'pointer'
                     }}
@@ -2276,12 +2334,10 @@ export default function App() {
                                     </div>
                                   ) : (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                      <span style={{ fontWeight: '500', color: MONO.DARK }}>
-                                        ≤ {minThreshold} {item.unit || 'เม็ด'}
-                                      </span>
+                                      <span style={{ fontWeight: '500' }}>≤ {minThreshold} {item.unit}</span>
                                       {isAdmin && (
-                                        <button onClick={(e) => handleStartEditMinStock(e, item)} style={btnEditMini}>
-                                          <Edit2 size={12} />
+                                        <button onClick={(e) => handleStartEditMinStock(e, item)} style={btnEditMini} title="แก้ไขเกณฑ์เตือน">
+                                          <Edit2 size={11} /> แก้ไข
                                         </button>
                                       )}
                                     </div>
@@ -2289,15 +2345,18 @@ export default function App() {
                                 </td>
 
                                 <td style={tdStyle}>
-                                  <span style={{ fontSize: '14px', fontWeight: '700', color: isLow || sellableQty === 0 ? ALERTS.WARNING_TEXT : MONO.DARKEST }}>
-                                    {sellableQty.toLocaleString()} {item.unit || 'เม็ด'}
+                                  <span style={{ fontWeight: '700', color: isLow || sellableQty === 0 ? ALERTS.WARNING_TEXT : MONO.DARKEST, fontSize: '14px' }}>
+                                    {sellableQty.toLocaleString()} {item.unit}
                                   </span>
                                 </td>
 
                                 <td style={tdStyle}>
-                                  <span style={stockBadge(isLow, !hasValidLot)}>
-                                    {!hasValidLot ? <AlertOctagon size={13} /> : (isLow ? <ShieldAlert size={13} /> : <CheckCircle2 size={13} />)}
-                                    {!hasValidLot ? 'ไม่มีล็อตขาย' : (isLow ? 'สต็อกต่ำ' : 'ปกติ')}
+                                  <span style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', padding: '3px 8px', borderRadius: '12px',
+                                    backgroundColor: sellableQty === 0 ? ALERTS.EXPIRED_BG : (isLow ? ALERTS.WARNING_BG : ALERTS.SUCCESS_BG),
+                                    color: sellableQty === 0 ? ALERTS.EXPIRED_TEXT : (isLow ? ALERTS.WARNING_TEXT : ALERTS.SUCCESS_TEXT)
+                                  }}>
+                                    {sellableQty === 0 ? '❌ หมดคลัง' : (isLow ? '⚠️ สต็อกต่ำ' : '✅ ปกติ')}
                                   </span>
                                 </td>
                               </tr>
@@ -2315,121 +2374,109 @@ export default function App() {
           {/* 4. CHATBOT VIEW */}
           {activeMenu === 'chatbot' && (
             <div className="grid-responsive-2" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '16px', height: '100%', minHeight: 0 }}>
-              <div style={{ ...panelCardStyle, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+              <div style={panelCardStyle}>
                 <div style={panelHeader}>
-                  <Bot size={18} color={MONO.PRIMARY} />
-                  <h3 style={panelTitle}>สอบถามข้อมูลคลังยาและระบบเบิกจ่าย</h3>
-                  <span style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: '600', backgroundColor: MONO.PALE, color: MONO.DEEP, padding: '3px 10px', borderRadius: '12px', border: `1px solid ${MONO.TINT}` }}>
-                    Role: {currentUser.role.toUpperCase()}
-                  </span>
+                  <Bot size={20} color={MONO.PRIMARY} />
+                  <div>
+                    <h3 style={panelTitle}>สอบถามข้อมูลแชทบอทอัจฉริยะ</h3>
+                    <p style={{ fontSize: '11px', color: MONO.DARK, margin: 0 }}>
+                      {!isAdmin ? 'เภสัชกร' : 'ผู้ดูแลคลังสินค้า'}
+                    </p>
+                  </div>
                 </div>
 
-                <div style={{ flex: 1, padding: '16px', display: 'flex', flexDirection: 'column', backgroundColor: MONO.PALE, overflow: 'hidden', minHeight: 0 }}>
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', paddingRight: '4px' }}>
-                    {chatMessages.map(msg => (
-                      <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: msg.sender === 'user' ? 'flex-end' : 'flex-start' }}>
-                        <div style={{
-                          maxWidth: '82%',
-                          padding: '12px 16px',
-                          borderRadius: msg.sender === 'user' ? '16px 16px 2px 16px' : '16px 16px 16px 2px',
-                          backgroundColor: msg.sender === 'user' ? MONO.PRIMARY : '#ffffff',
-                          color: msg.sender === 'user' ? '#ffffff' : MONO.DARKEST,
-                          boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
-                          fontSize: '13px',
-                          lineHeight: '1.6',
-                          whiteSpace: 'pre-line',
-                          border: msg.sender === 'user' ? 'none' : `1px solid ${MONO.TINT}`
-                        }}>
-                          {msg.text}
-                        </div>
-                        <span style={{ fontSize: '10px', color: MONO.SOFT, marginTop: '4px', padding: '0 4px' }}>{msg.time}</span>
-                      </div>
-                    ))}
-                    <div ref={chatEndRef} />
-                  </div>
+                <div ref={chatMessagesBoxRef} style={{ flex: 1, padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', backgroundColor: MONO.PALE }}>
+                  {chatMessages.map((msg) => (
+                    <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: msg.sender === 'user' ? 'flex-end' : 'flex-start' }}>
+                      <div style={{
+                        maxWidth: '85%',
+                        padding: '12px 16px',
+                        borderRadius: msg.sender === 'user' ? '16px 16px 2px 16px' : '16px 16px 16px 2px',
+                        backgroundColor: msg.sender === 'user' ? MONO.PRIMARY : '#ffffff',
+                        color: msg.sender === 'user' ? '#ffffff' : MONO.DARKEST,
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                        border: msg.sender === 'bot' ? `1px solid ${MONO.TINT}` : 'none',
+                        fontSize: '13px',
+                        lineHeight: '1.6',
+                        whiteSpace: 'pre-line'
+                      }}>
+                        {msg.text}
 
-                  <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} style={{ display: 'flex', gap: '10px', marginTop: '14px', backgroundColor: '#ffffff', padding: '10px', borderRadius: '12px', border: `1px solid ${MONO.TINT}`, flexShrink: 0 }}>
-                    <input 
-                      type="text" 
-                      placeholder="พิมพ์ถามระบบ หรือเลือกกดคำถามด้านขวา..." 
-                      value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
-                      style={{ ...inputStyle, border: 'none', backgroundColor: 'transparent' }} 
-                    />
-                    <button type="submit" style={{ ...btnSubmit, width: 'auto', padding: '0 20px', margin: 0 }}>
-                      <Send size={16} /> ส่งข้อความ
-                    </button>
-                  </form>
+                        {msg.image && (
+                          <div style={{ marginTop: '12px', textAlign: 'center' }}>
+                            <img src={msg.image} alt="LINE QR Code" style={{ width: '180px', height: '180px', borderRadius: '12px', border: `1px solid ${MONO.TINT}`, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }} />
+                          </div>
+                        )}
+                      </div>
+                      <span style={{ fontSize: '10px', color: MONO.SOFT, marginTop: '4px', padding: '0 4px' }}>{msg.time}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ padding: '14px 16px', borderTop: `1px solid ${MONO.TINT}`, backgroundColor: '#ffffff', display: 'flex', gap: '10px' }}>
+                  <input 
+                    type="text" 
+                    placeholder={!isAdmin ? "พิมพ์คำถาม เช่น เช็คยาใกล้หมดอายุ, สรุปยอดส่งคลัง, LINE..." : "พิมพ์คำถามเกี่ยวกับสต็อก ยาหมดอายุ FEFO..."} 
+                    value={chatInput} 
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                    style={{ ...inputStyle, height: '42px', fontSize: '13px' }}
+                  />
+                  <button onClick={() => handleSendMessage()} style={{ ...btnSubmit, width: '48px', height: '42px', borderRadius: '8px', flexShrink: 0 }}>
+                    <Send size={18} />
+                  </button>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', minHeight: 0, overflowY: 'auto' }}>
-                
-                {/* LINE NOTIFICATION PROMPT BOX */}
-                <div style={{ ...panelCardStyle, padding: '14px', backgroundColor: '#f0fdf4', border: `1px solid ${ALERTS.SUCCESS_BORDER}`, flexShrink: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: ALERTS.SUCCESS_TEXT }}>
-                    <Bell size={18} />
-                    <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '700' }}>การแจ้งเตือน LINE อัตโนมัติ</h4>
-                  </div>
-                  <p style={{ margin: 0, fontSize: '11px', color: MONO.DARK, lineHeight: '1.5' }}>
-                    ลงทะเบียนรับสรุปรายงานยาสต็อกต่ำและยาใกล้หมดอายุตรงเข้า LINE ของคุณทุกเช้า 8 โมง
-                  </p>
-
-                  <div style={{ textAlign: 'center', margin: '12px 0 8px 0', padding: '10px', backgroundColor: '#ffffff', borderRadius: '10px', border: `1px solid ${ALERTS.SUCCESS_BORDER}` }}>
-                    <img 
-                      src="images/qr.png" 
-                      alt="LINE Official QR Code" 
-                      style={{ width: '120px', height: '120px', objectFit: 'contain', borderRadius: '6px' }} 
-                    />
-                    <div style={{ fontSize: '11px', color: MONO.DARK, marginTop: '6px', fontWeight: '600' }}>
-                      สแกน QR Code เพื่อเพิ่มเพื่อน LINE
-                    </div>
-                  </div>
-
-                  <button 
-                    onClick={() => handleSendMessage('วิธีลงทะเบียนรับแจ้งเตือน LINE 8 โมงเช้า')} 
-                    style={{ ...btnEditMini, marginTop: '6px', width: '100%', justifyContent: 'center', backgroundColor: '#16a34a', color: '#ffffff', border: 'none', padding: '8px' }}
-                  >
-                    <Smartphone size={13} /> ดูวิธีลงทะเบียน LINE ID
-                  </button>
+              {/* QUICK QUESTIONS SIDEBAR */}
+              <div style={panelCardStyle}>
+                <div style={panelHeader}>
+                  <HelpCircle size={18} color={MONO.PRIMARY} />
+                  <h3 style={panelTitle}>คำถามที่พบบ่อย (Quick Query)</h3>
                 </div>
 
-                {/* QUICK QUERY BUTTONS */}
-                <div style={{ ...panelCardStyle, flexShrink: 0 }}>
-                  <div style={panelHeader}>
-                    <HelpCircle size={18} color={MONO.PRIMARY} />
-                    <h3 style={panelTitle}>คำถามที่พบบ่อย (Quick Query)</h3>
-                  </div>
-                  <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {isAdmin ? (
-                      <>
-                        <button onClick={() => handleSendMessage('ตรวจสอบยาสต็อกต่ำกว่าเกณฑ์')} style={quickQueryBtn}>
-                          🔍 ตรวจสอบยาสต็อกต่ำกว่าเกณฑ์
-                        </button>
-                        <button onClick={() => handleSendMessage('เช็คยาล็อตใกล้หมดอายุ')} style={quickQueryBtn}>
-                          ⏰ เช็คยาล็อตใกล้หมดอายุ
-                        </button>
-                        <button onClick={() => handleSendMessage('วิธีเบิกจ่ายยาตามหลัก FEFO')} style={quickQueryBtn}>
-                          💡 วิธีเบิกจ่ายยาตามหลัก FEFO
-                        </button>
-                        <button onClick={() => handleSendMessage('สรุปมูลค่าคลังสินค้า')} style={quickQueryBtn}>
-                          📊 สรุปมูลค่าคลังสินค้า
-                        </button>
-                        <button onClick={() => handleSendMessage('การกำหนดสิทธิ์ผู้ใช้งาน')} style={quickQueryBtn}>
-                          🔒 การกำหนดสิทธิ์ผู้ใช้งาน
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button onClick={() => handleSendMessage('เช็คยาล็อตใกล้หมดอายุ')} style={quickQueryBtn}>
-                          ⏰ เช็คยาล็อตใกล้หมดอายุ
-                        </button>
-                        <button onClick={() => handleSendMessage('วิธีเบิกจ่ายยาตามหลัก FEFO')} style={quickQueryBtn}>
-                          💡 วิธีเบิกจ่ายยาตามหลัก FEFO
-                        </button>
-                      </>
-                    )}
-                  </div>
+                <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto' }}>
+                  {/* RESTRICTED QUICK QUERY BUTTONS FOR PHARMACIST */}
+                  {!isAdmin ? (
+                    <>
+                      <button onClick={() => handleSendMessage('การรับแจ้งเตือน LINE อัตโนมัติ (สแกน QR)')} style={quickQueryBtn}>
+                        📲 รับแจ้งเตือน LINE อัตโนมัติ (สแกน QR)
+                      </button>
+                      <button onClick={() => handleSendMessage('สรุปยอดส่งคลัง')} style={quickQueryBtn}>
+                        📦 สรุปยอดส่งคลัง / สต็อกยา
+                      </button>
+                      <button onClick={() => handleSendMessage('เช็คยาใกล้หมดอายุ')} style={quickQueryBtn}>
+                        ⏳ เช็คยาใกล้หมดอายุ
+                      </button>
+                      <button onClick={() => handleSendMessage('วิธีการเบิกจ่ายยาตามหลัก FEFO')} style={quickQueryBtn}>
+                        💡 วิธีการเบิกจ่ายยาตามหลัก FEFO
+                      </button>
+                      <button onClick={() => handleSendMessage('สิทธิ์การใช้งานระบบ Admin / Pharmacist')} style={quickQueryBtn}>
+                        🔒 สิทธิ์การใช้งานระบบ Admin / Pharmacist
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => handleSendMessage('สรุปมูลค่าคลังสินค้า')} style={quickQueryBtn}>
+                        📊 สรุปมูลค่าทุนและราคาขาย
+                      </button>
+                      <button onClick={() => handleSendMessage('สรุปยอดส่งคลัง')} style={quickQueryBtn}>
+                        📦 สรุปยอดส่งคลัง / ยาต่ำกว่าเกณฑ์
+                      </button>
+                      <button onClick={() => handleSendMessage('เช็คยาใกล้หมดอายุ')} style={quickQueryBtn}>
+                        ⏳ ยาใกล้หมดอายุทั้งหมด
+                      </button>
+                      <button onClick={() => handleSendMessage('วิธีการเบิกจ่ายยาตามหลัก FEFO')} style={quickQueryBtn}>
+                        💡 วิธีการเบิกจ่ายยาตามหลัก FEFO
+                      </button>
+                      <button onClick={() => handleSendMessage('การรับแจ้งเตือน LINE อัตโนมัติ (สแกน QR)')} style={quickQueryBtn}>
+                        📲 ลงทะเบียน LINE Notify (สแกน QR)
+                      </button>
+                      <button onClick={() => handleSendMessage('สิทธิ์การใช้งานระบบ Admin / Pharmacist')} style={quickQueryBtn}>
+                        🔒 สิทธิ์การใช้งานระบบ Admin / Pharmacist
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -2437,142 +2484,108 @@ export default function App() {
 
           {/* 5. PERMISSIONS VIEW */}
           {activeMenu === 'permissions' && isAdmin && (
-            <div className="grid-responsive-2" style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: '16px', height: '100%', minHeight: 0 }}>
-              
-              <div style={{ ...panelCardStyle, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+            <div className="grid-responsive-2" style={twoColumnGridStyle}>
+              {/* FORM REGISTER USER */}
+              <div style={panelCardStyle}>
                 <div style={panelHeader}>
                   <UserPlus size={18} color={MONO.PRIMARY} />
-                  <h3 style={panelTitle}>เพิ่มผู้ใช้งานระบบและกำหนดสิทธิ์</h3>
+                  <h3 style={panelTitle}>ลงทะเบียนผู้ใช้งานใหม่</h3>
                 </div>
 
-                <form onSubmit={handleCreateUser} style={{ padding: '18px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <form onSubmit={handleCreateUser} style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px', flex: 1, overflowY: 'auto' }}>
                   <div style={formGroup}>
-                    <div style={labelHeaderStyle}>
-                      <label style={labelStyle}>ชื่อ-นามสกุล</label>
-                    </div>
-                    <input 
-                      type="text" 
-                      placeholder="เช่น เภสัชกร สมชาย" 
-                      value={newUserForm.name} 
-                      onChange={(e) => setNewUserForm(prev => ({ ...prev, name: e.target.value }))} 
-                      required 
-                      style={inputStyle} 
-                    />
+                    <div style={labelHeaderStyle}><label style={labelStyle}>ชื่อผู้ใช้งาน (Username)*</label></div>
+                    <input type="text" placeholder="เช่น pharmacist2" value={newUserForm.username} onChange={(e) => setNewUserForm({ ...newUserForm, username: e.target.value })} required style={inputStyle} />
                   </div>
 
                   <div style={formGroup}>
-                    <div style={labelHeaderStyle}>
-                      <label style={labelStyle}>ชื่อผู้ใช้งาน (Username)</label>
-                    </div>
-                    <input 
-                      type="text" 
-                      placeholder="เช่น pharmacist2" 
-                      value={newUserForm.username} 
-                      onChange={(e) => setNewUserForm(prev => ({ ...prev, username: e.target.value }))} 
-                      required 
-                      style={inputStyle} 
-                    />
+                    <div style={labelHeaderStyle}><label style={labelStyle}>ชื่อ-นามสกุล (Name)*</label></div>
+                    <input type="text" placeholder="เช่น ภก.สมชาย สายใจ" value={newUserForm.name} onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })} required style={inputStyle} />
                   </div>
 
                   <div style={formGroup}>
-                    <div style={labelHeaderStyle}>
-                      <label style={labelStyle}>รหัสผ่าน (Password)</label>
-                    </div>
-                    <input 
-                      type="password" 
-                      placeholder="กำหนดรหัสผ่าน" 
-                      value={newUserForm.password} 
-                      onChange={(e) => setNewUserForm(prev => ({ ...prev, password: e.target.value }))} 
-                      required 
-                      style={inputStyle} 
-                    />
+                    <div style={labelHeaderStyle}><label style={labelStyle}>รหัสผ่าน (Password)*</label></div>
+                    <input type="password" placeholder="ตั้งรหัสผ่าน" value={newUserForm.password} onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })} required style={inputStyle} />
                   </div>
 
                   <div style={formGroup}>
-                    <div style={labelHeaderStyle}>
-                      <label style={labelStyle}>สิทธิ์การใช้งาน (Role)</label>
-                    </div>
-                    <select 
-                      value={newUserForm.role} 
-                      onChange={(e) => setNewUserForm(prev => ({ ...prev, role: e.target.value }))} 
-                      style={selectStyle}
-                    >
-                      <option value="pharmacist">pharmacist (เภสัชกรหน้าร้าน)</option>
-                      <option value="admin">admin (ผู้ดูแลระบบ)</option>
+                    <div style={labelHeaderStyle}><label style={labelStyle}>บทบาท/สิทธิ์การใช้งาน (Role)*</label></div>
+                    <select value={newUserForm.role} onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value })} style={selectStyle}>
+                      <option value="pharmacist">Pharmacist (เภสัชกรหน้าร้าน)</option>
+                      <option value="admin">Admin (ผู้ดูแลระบบ)</option>
                     </select>
                   </div>
 
                   <div style={formGroup}>
-                    <div style={labelHeaderStyle}>
-                      <label style={labelStyle}>LINE User ID สำหรับรับแจ้งเตือน</label>
-                    </div>
-                    <input 
-                      type="text" 
-                      placeholder="เช่น U1234567890abcdef..." 
-                      value={newUserForm.line_user_id} 
-                      onChange={(e) => setNewUserForm(prev => ({ ...prev, line_user_id: e.target.value }))} 
-                      style={inputStyle} 
-                    />
+                    <div style={labelHeaderStyle}><label style={labelStyle}>LINE User ID (สำหรับรับแจ้งเตือน)</label></div>
+                    <input type="text" placeholder="เช่น U1234567890abcdef" value={newUserForm.line_user_id} onChange={(e) => setNewUserForm({ ...newUserForm, line_user_id: e.target.value })} style={inputStyle} />
                   </div>
 
                   <button type="submit" style={{ ...btnSubmit, marginTop: '8px' }}>
-                    <UserPlus size={18} /> ลงทะเบียนและบันทึกผู้ใช้
+                    <UserPlus size={16} /> บันทึกสิทธิ์ผู้ใช้งาน
                   </button>
                 </form>
               </div>
 
-              <div style={{ ...panelCardStyle, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+              {/* TABLE USERS LIST */}
+              <div style={panelCardStyle}>
                 <div style={panelHeader}>
                   <ShieldCheck size={18} color={MONO.PRIMARY} />
-                  <h3 style={panelTitle}>รายชื่อผู้ใช้งานในระบบ ({usersList.length} คน)</h3>
+                  <h3 style={panelTitle}>ตารางสิทธิ์ผู้ใช้งานทั้งหมดในระบบ</h3>
                 </div>
 
-                <div style={{ flex: 1, overflowY: 'auto', padding: '8px', minHeight: 0 }}>
+                <div style={tableScrollContainerStyle}>
                   <div className="table-wrapper">
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                       <thead style={{ position: 'sticky', top: 0, backgroundColor: MONO.PALE, zIndex: 2 }}>
                         <tr style={thRowStyle}>
-                          <th style={thStyle}>ID / ชื่อผู้ใช้</th>
+                          <th style={thStyle}>ID / Username</th>
                           <th style={thStyle}>ชื่อ-นามสกุล</th>
                           <th style={thStyle}>สิทธิ์ (Role)</th>
-                          <th style={thStyle}>LINE User ID</th>
+                          <th style={thStyle}>LINE ID</th>
                           <th style={thStyle}>จัดการ</th>
                         </tr>
                       </thead>
                       <tbody>
                         {usersList.map((u) => {
-                          const uId = u.user_id || u.id;
+                          const uid = u.user_id || u.id;
+                          const isUserAdmin = u.role === 'admin';
                           return (
-                            <tr key={uId} style={trStyle}>
+                            <tr key={uid} style={trStyle}>
                               <td style={tdStyle}>
-                                <span style={codeBadge}>{uId}</span>
-                                <div style={{ fontWeight: '600', color: MONO.DARKEST, marginTop: '2px' }}>@{u.username}</div>
+                                <span style={codeBadge}>{uid}</span>
+                                <div style={{ fontWeight: '600', color: MONO.DARKEST, marginTop: '2px' }}>{u.username}</div>
                               </td>
                               <td style={tdStyle}>{u.name}</td>
                               <td style={tdStyle}>
                                 <span style={{
-                                  fontSize: '11px', fontWeight: '600', padding: '2px 8px', borderRadius: '10px',
-                                  backgroundColor: u.role === 'admin' ? MONO.DARKEST : ALERTS.INFO_BG,
-                                  color: u.role === 'admin' ? '#ffffff' : ALERTS.INFO_TEXT
+                                  fontSize: '11px', fontWeight: '600', padding: '3px 8px', borderRadius: '12px',
+                                  backgroundColor: isUserAdmin ? MONO.DARKEST : ALERTS.SUCCESS_BG,
+                                  color: isUserAdmin ? '#ffffff' : ALERTS.SUCCESS_TEXT
                                 }}>
                                   {u.role ? u.role.toUpperCase() : 'PHARMACIST'}
                                 </span>
                               </td>
                               <td style={tdStyle}>
                                 {u.line_user_id ? (
-                                  <span style={{ fontSize: '12px', color: ALERTS.SUCCESS_TEXT, fontWeight: '500' }}>
-                                    {u.line_user_id}
-                                  </span>
+                                  <span style={{ fontSize: '11px', color: MONO.DEEP, fontWeight: '500' }}>✅ {u.line_user_id}</span>
                                 ) : (
-                                  <span style={{ fontSize: '12px', color: MONO.SOFT }}>- ยังไม่เชื่อมต่อ -</span>
+                                  <span style={{ fontSize: '11px', color: MONO.SOFT }}>- ไม่ระบุ -</span>
                                 )}
                               </td>
                               <td style={tdStyle}>
                                 <button 
-                                  onClick={() => handleDeleteUser(uId, u.username)}
-                                  style={{ ...btnEditMini, backgroundColor: ALERTS.EXPIRED_BG, color: ALERTS.EXPIRED_TEXT, border: `1px solid ${ALERTS.EXPIRED_BORDER}` }}
+                                  onClick={() => handleDeleteUser(uid, u.username)} 
+                                  disabled={u.username === currentUser.username}
+                                  style={{ 
+                                    ...btnEditMini, 
+                                    backgroundColor: u.username === currentUser.username ? MONO.TINT : ALERTS.EXPIRED_BG, 
+                                    color: u.username === currentUser.username ? MONO.SOFT : ALERTS.EXPIRED_TEXT, 
+                                    borderColor: u.username === currentUser.username ? MONO.TINT : ALERTS.EXPIRED_BORDER,
+                                    cursor: u.username === currentUser.username ? 'not-allowed' : 'pointer'
+                                  }}
                                 >
-                                  <Trash2 size={13} /> ลบ
+                                  <Trash2 size={12} /> ลบ
                                 </button>
                               </td>
                             </tr>
@@ -2583,109 +2596,102 @@ export default function App() {
                   </div>
                 </div>
               </div>
-
             </div>
           )}
 
         </main>
       </div>
 
-      {/* PRODUCT LOTS DETAIL MODAL */}
+      {/* MODAL VIEW FOR PRODUCT LOT DETAILS */}
       {selectedProduct && (
         <div style={modalOverlayStyle} onClick={closeModal}>
           <div style={modalCardStyle} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: `1px solid ${MONO.TINT}`, paddingBottom: '12px' }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: MONO.DARKEST }}>
-                  {selectedProduct.product_name}
-                </h3>
-                <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: MONO.DARK }}>
-                  รหัส: {selectedProduct.product_code} | หน่วย: {selectedProduct.unit} | ตำแหน่ง: {selectedProduct.location || 'ตู้ A1'}
-                </p>
+                <span style={codeBadge}>{selectedProduct.product_code}</span>
+                <h3 style={{ fontSize: '18px', fontWeight: '700', color: MONO.DARKEST, margin: '4px 0 0 0' }}>{selectedProduct.product_name}</h3>
               </div>
-              <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MONO.DARK }}>
-                <X size={20} />
-              </button>
+              <button onClick={closeModal} style={{ background: 'none', border: 'none', color: MONO.DARK, cursor: 'pointer' }}><X size={20} /></button>
             </div>
 
-            {loadingLots ? (
-              <div style={{ textAlign: 'center', padding: '24px', color: MONO.DARK }}>กำลังดึงข้อมูลล็อต...</div>
-            ) : (
-              <div style={{ overflowY: 'auto', maxHeight: '400px' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                  <thead>
-                    <tr style={thRowStyle}>
-                      <th style={thStyle}>เลขล็อต</th>
-                      <th style={thStyle}>วันหมดอายุ</th>
-                      <th style={thStyle}>คงเหลือ</th>
-                      <th style={thStyle}>ราคาทุน</th>
-                      <th style={thStyle}>ราคาขาย</th>
-                      {isAdmin && <th style={thStyle}>จัดการ</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {productLots.map((lot) => {
-                      const lotId = lot.lot_id || lot.id;
-                      const isEditing = editingLotId === lotId;
-                      const daysLeft = getDaysToExpiry(lot.expiry_date || lot.nearest_expiry);
-                      const isExpired = daysLeft !== null && daysLeft <= 0;
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '60vh', overflowY: 'auto' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', padding: '12px', backgroundColor: MONO.PALE, borderRadius: '8px', fontSize: '12px' }}>
+                <div>รูปแบบ: <strong>{selectedProduct.product_type}</strong></div>
+                <div>หมวดหมู่: <strong>{selectedProduct.category}</strong></div>
+                <div>ตำแหน่ง: <strong>{selectedProduct.location || 'ตู้ A1'}</strong></div>
+              </div>
 
-                      return (
-                        <tr key={lotId} style={{ ...trStyle, backgroundColor: isExpired ? ALERTS.EXPIRED_BG : 'transparent' }}>
-                          <td style={tdStyle}><span style={lotBadge}>{lot.lot_number}</span></td>
-                          <td style={tdStyle}>
-                            {formatDate(lot.expiry_date || lot.nearest_expiry)}
-                            {isExpired && <span style={{ color: ALERTS.EXPIRED_TEXT, fontSize: '11px', display: 'block' }}>(หมดอายุ)</span>}
-                          </td>
-                          <td style={tdStyle}>{lot.quantity} {selectedProduct.unit}</td>
-                          <td style={tdStyle}>
-                            {isEditing ? (
-                              <input 
-                                type="number" 
-                                value={tempLotPrices.cost_price} 
-                                onChange={(e) => setTempLotPrices(p => ({ ...p, cost_price: e.target.value }))}
-                                style={{ width: '70px', padding: '2px 4px', fontSize: '12px' }}
-                              />
-                            ) : (
-                              `฿${Number(lot.cost_price ?? selectedProduct.cost_price ?? 0).toFixed(2)}`
-                            )}
-                          </td>
-                          <td style={tdStyle}>
-                            {isEditing ? (
-                              <input 
-                                type="number" 
-                                value={tempLotPrices.selling_price} 
-                                onChange={(e) => setTempLotPrices(p => ({ ...p, selling_price: e.target.value }))}
-                                style={{ width: '70px', padding: '2px 4px', fontSize: '12px' }}
-                              />
-                            ) : (
-                              `฿${Number(lot.selling_price ?? selectedProduct.selling_price ?? 0).toFixed(2)}`
-                            )}
-                          </td>
-                          {isAdmin && (
+              <h4 style={{ fontSize: '14px', fontWeight: '600', color: MONO.DARKEST, margin: '8px 0 0 0' }}>รายการล็อตยาทั้งหมดในคลัง</h4>
+
+              {loadingLots ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: MONO.DARK }}>กำลังโหลดข้อมูลล็อต...</div>
+              ) : (
+                <div className="table-wrapper">
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                    <thead>
+                      <tr style={thRowStyle}>
+                        <th style={thStyle}>เลขล็อต</th>
+                        <th style={thStyle}>วันหมดอายุ</th>
+                        <th style={thStyle}>จำนวนคงเหลือ</th>
+                        <th style={thStyle}>ราคาทุน</th>
+                        <th style={thStyle}>ราคาขาย</th>
+                        {isAdmin && <th style={thStyle}>จัดการ</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {productLots.map((lot) => {
+                        const lotId = lot.lot_id || lot.id;
+                        const isEditingThis = editingLotId === lotId;
+                        const daysLeft = getDaysToExpiry(lot.expiry_date || lot.nearest_expiry);
+                        const isExpired = daysLeft !== null && daysLeft <= 0;
+
+                        return (
+                          <tr key={lotId} style={{ ...trStyle, backgroundColor: isExpired ? ALERTS.EXPIRED_BG : 'transparent' }}>
+                            <td style={tdStyle}><span style={lotBadge}>{lot.lot_number || 'LOT-1'}</span></td>
                             <td style={tdStyle}>
-                              {isEditing ? (
-                                <button onClick={() => handleSaveLotPrices(lotId)} style={btnSaveMini}>
-                                  <Save size={12} /> บันทึก
-                                </button>
+                              {formatDate(lot.expiry_date || lot.nearest_expiry)}
+                              <div style={{ fontSize: '10px', color: isExpired ? ALERTS.EXPIRED_TEXT : (daysLeft <= 90 ? ALERTS.WARNING_TEXT : MONO.DEEP) }}>
+                                {isExpired ? '❌ หมดอายุแล้ว' : `(เหลือ ${daysLeft} วัน)`}
+                              </div>
+                            </td>
+                            <td style={tdStyle}><strong>{lot.quantity} {selectedProduct.unit}</strong></td>
+                            
+                            <td style={tdStyle}>
+                              {isEditingThis ? (
+                                <input type="number" step="0.01" value={tempLotPrices.cost_price} onChange={(e) => setTempLotPrices({ ...tempLotPrices, cost_price: e.target.value })} style={{ width: '70px', height: '28px', padding: '0 4px', fontSize: '12px' }} />
                               ) : (
-                                <button onClick={() => handleStartEditLot(lot)} style={btnEditMini}>
-                                  <Edit2 size={12} /> แก้ไขราคา
-                                </button>
+                                `฿${Number(lot.cost_price ?? selectedProduct.cost_price ?? 0).toFixed(2)}`
                               )}
                             </td>
-                          )}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+
+                            <td style={tdStyle}>
+                              {isEditingThis ? (
+                                <input type="number" step="0.01" value={tempLotPrices.selling_price} onChange={(e) => setTempLotPrices({ ...tempLotPrices, selling_price: e.target.value })} style={{ width: '70px', height: '28px', padding: '0 4px', fontSize: '12px' }} />
+                              ) : (
+                                `฿${Number(lot.selling_price ?? selectedProduct.selling_price ?? 0).toFixed(2)}`
+                              )}
+                            </td>
+
+                            {isAdmin && (
+                              <td style={tdStyle}>
+                                {isEditingThis ? (
+                                  <button onClick={() => handleSaveLotPrices(lotId)} style={btnSaveMini}><Save size={11} /> บันทึก</button>
+                                ) : (
+                                  <button onClick={() => handleStartEditLot(lot)} style={btnEditMini}><Edit2 size={11} /> แก้ไขราคา</button>
+                                )}
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
-
     </div>
   );
 }
