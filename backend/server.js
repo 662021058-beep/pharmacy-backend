@@ -367,6 +367,18 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
+// ฟังก์ชันลบเว้นวรรคหัว-ท้าย และลดเว้นวรรคซ้ำๆ ให้เหลือเว้นวรรคเดียว
+const sanitizeText = (text) => {
+  if (!text) return '';
+  return String(text).replace(/\s+/g, ' ').trim();
+};
+
+// ตัวอย่างการนำไปใช้ใน API /api/products
+const rawType = sanitizeText(product_type) || 'tablet';
+const rawCategory = sanitizeText(category) || 'ยาสามัญประจำบ้าน';
+const rawUnit = sanitizeText(unit) || 'เม็ด';
+
+
 app.post('/api/products', async (req, res) => {
   const { 
     product_code, product_name, product_type, unit, category,
@@ -374,33 +386,75 @@ app.post('/api/products', async (req, res) => {
     lot_number, expiry_date, quantity 
   } = req.body;
 
+  // 🛑 Validation ข้อมูลจำเป็น
+  if (!product_code || !String(product_code).trim()) {
+    return res.status(400).json({ success: false, message: 'กรุณากรอกรหัสสินค้า' });
+  }
+  if (!product_name || !String(product_name).trim()) {
+    return res.status(400).json({ success: false, message: 'กรุณากรอกชื่อสินค้า' });
+  }
+
+  // ดึง Connection สำหรับทำ Transaction
+  const connection = await db.getConnection();
+
   try {
+    await connection.beginTransaction();
+
+    const rawType = (product_type && String(product_type).trim() !== '') ? String(product_type).trim() : 'tablet';
+    const rawCategory = (category && String(category).trim() !== '') ? String(category).trim() : 'ยาสามัญประจำบ้าน';
+    const rawUnit = (unit && String(unit).trim() !== '') ? String(unit).trim() : 'เม็ด';
+
+    // Helper Function ปลอดภัย ป้องกัน Type Coercion Bug
+    const ensureMasterRecord = async (conn, tableName, value) => {
+      const [existing] = await conn.query(
+        `SELECT id FROM ${tableName} WHERE label = ? OR id = ?`,
+        [value, String(value)]
+      );
+
+      if (existing.length > 0) {
+        return existing[0].id;
+      }
+
+      const [inserted] = await conn.query(
+        `INSERT INTO ${tableName} (label) VALUES (?)`,
+        [value]
+      );
+      return inserted.insertId;
+    };
+
+    const typeId = await ensureMasterRecord(connection, 'product_types', rawType);
+    const categoryId = await ensureMasterRecord(connection, 'categories', rawCategory);
+    const unitId = await ensureMasterRecord(connection, 'units', rawUnit);
+
+    // จัดการวันที่หมดอายุ (ป้องกัน Error จาก String ว่าง)
+    const cleanExpiryDate = (expiry_date && String(expiry_date).trim() !== '') ? expiry_date : null;
+
     let productId;
-    const [existingProduct] = await db.query(
+    const [existingProduct] = await connection.query(
       'SELECT product_id FROM products WHERE product_code = ?',
-      [product_code]
+      [product_code.trim()]
     );
 
     if (existingProduct.length > 0) {
       productId = existingProduct[0].product_id;
-      await db.query(
+      await connection.query(
         `UPDATE products SET 
           product_name = ?, product_type = ?, unit = ?, category = ?, 
           cost_price = ?, selling_price = ?, location = ?
         WHERE product_id = ?`,
         [
-          product_name, product_type, unit || 'เม็ด', category || 'ยาสามัญประจำบ้าน',
+          product_name.trim(), typeId, unitId, categoryId,
           parseFloat(cost_price) || 0, parseFloat(selling_price) || 0,
           location || 'ตู้ทั่วไป', productId
         ]
       );
     } else {
-      const [productResult] = await db.query(
+      const [productResult] = await connection.query(
         `INSERT INTO products 
         (product_code, product_name, product_type, unit, category, cost_price, selling_price, min_stock, location) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          product_code, product_name, product_type, unit || 'เม็ด', category || 'ยาสามัญประจำบ้าน',
+          product_code.trim(), product_name.trim(), typeId, unitId, categoryId,
           parseFloat(cost_price) || 0, parseFloat(selling_price) || 0,
           parseInt(min_stock) || 10, location || 'ตู้ทั่วไป'
         ]
@@ -408,23 +462,36 @@ app.post('/api/products', async (req, res) => {
       productId = productResult.insertId;
     }
 
-    await db.query(
+    // บันทึกล็อตสินค้า
+    await connection.query(
       `INSERT INTO product_lots 
         (product_id, lot_number, expiry_date, quantity, cost_price, selling_price) 
        VALUES (?, ?, ?, ?, ?, ?)`,
       [
-        productId, lot_number, expiry_date, parseInt(quantity) || 0,
-        parseFloat(cost_price) || 0, parseFloat(selling_price) || 0
+        productId, 
+        lot_number ? String(lot_number).trim() : 'LOT-001', 
+        cleanExpiryDate, 
+        parseInt(quantity) || 0,
+        parseFloat(cost_price) || 0, 
+        parseFloat(selling_price) || 0
       ]
     );
+
+    // ยืนยัน Transaction
+    await connection.commit();
 
     return res.status(201).json({ 
       success: true, 
       message: existingProduct.length > 0 ? 'เพิ่มล็อตใหม่ให้ยาเดิมเรียบร้อย!' : 'บันทึกยาและล็อตใหม่เรียบร้อย!' 
     });
+
   } catch (error) {
-    console.error('❌ เกิดข้อผิดพลาด:', error.message);
-    return res.status(500).json({ success: false, message: error.message });
+    // ยกเลิกการเปลี่ยนแปลงทั้งหมดเมื่อเกิด Error
+    await connection.rollback();
+    console.error('❌ เกิดข้อผิดพลาดในการบันทึกสินค้า:', error);
+    return res.status(500).json({ success: false, message: error.message || 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์' });
+  } finally {
+    connection.release();
   }
 });
 

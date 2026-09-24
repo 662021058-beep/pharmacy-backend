@@ -7,14 +7,14 @@ import {
   PackagePlus, UserCheck, ChevronRight, MapPin, Tag,
   X, Edit2, Save, DollarSign, CalendarX, AlertOctagon,
   LogOut, Lock, User, Shield, ShoppingBag, ArrowRight, CheckCircle, BarChart3, PieChart,
-  MessageSquare, Send, Bot, ShieldCheck, UserPlus, Trash2, HelpCircle, Bell, Smartphone, Menu
+  MessageSquare, Send, Bot, ShieldCheck, UserPlus, Trash2, HelpCircle, Bell, Smartphone, Menu, RotateCcw
 } from 'lucide-react';
 
 const API_URL = 'https://lalita-pharmacy-api.onrender.com/api';
 
 // INITIAL CHATBOT MESSAGES FOR RESET
 const INITIAL_CHAT_MESSAGES = [
-  { id: 1, sender: 'bot', text: 'สวัสดีครับ ระบบผู้ช่วยจัดการคลังยา LALITA PHARMACY พร้อมให้บริการ สามารถสอบถามข้อมูลสต็อก ยาหมดอายุ การเบิกจ่าย FEFO หรือการรับแจ้งเตือนผ่าน LINE อัตโนมัติทุก 8 โมงเช้าได้เลยครับ', time: '08:00' }
+  { id: 1, sender: 'bot', text: 'สวัสดีครับ ระบบผู้ช่วยจัดการคลังยา LALITA PHARMACY พร้อมให้บริการ สามารถสอบถามข้อมูลสต็อก ยาหมดอายุ การเบิกจ่าย FEFO หรือการรับแจ้งเตือนผ่าน LINE อัตโนมัติได้เลยครับ', time: '08:00' }
 ];
 
 // MODERN EYE-COMFORT TEAL PALETTE
@@ -242,6 +242,15 @@ export default function App() {
 
   const [expiryThreshold, setExpiryThreshold] = useState(90);
 
+  // STATE FOR EXPIRED RESET TIMESTAMP (PERSISTS ACROSS REFRESH & AUTO-RESETS EVERY 1 YEAR)
+  const [expiredResetTime, setExpiredResetTime] = useState(() => {
+    try {
+      return localStorage.getItem('pharmacy_expired_reset_time') || null;
+    } catch (e) {
+      return null;
+    }
+  });
+
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [productLots, setProductLots] = useState([]);
   const [loadingLots, setLoadingLots] = useState(false);
@@ -330,6 +339,36 @@ export default function App() {
 
   const isAdmin = currentUser?.role === 'admin';
 
+  // CHECK IF EXPIRED RESET IS CURRENTLY ACTIVE (WITHIN 1 YEAR = 365 DAYS)
+  const isExpiredResetActive = useMemo(() => {
+    if (!expiredResetTime) return false;
+    const resetDate = new Date(expiredResetTime).getTime();
+    if (isNaN(resetDate)) return false;
+    const now = new Date().getTime();
+    const oneYearInMs = 365 * 24 * 60 * 60 * 1000;
+    return (now - resetDate) < oneYearInMs;
+  }, [expiredResetTime]);
+
+  const handleResetExpiredData = () => {
+    Swal.fire({
+      title: 'ยืนยันการรีเซ็ตข้อมูลหมดอายุ?',
+      text: 'ค่ามูลค่ายาหมดอายุและยาล็อตหมดอายุในคลังจะถูกรีเซ็ตและไม่แสดงผล (ระบบจะรีเซ็ตอัตโนมัติทุกๆ 1 ปี)',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: MONO.PRIMARY,
+      cancelButtonColor: MONO.SOFT,
+      confirmButtonText: 'ยืนยันการรีเซ็ต',
+      cancelButtonText: 'ยกเลิก'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        const nowStr = new Date().toISOString();
+        localStorage.setItem('pharmacy_expired_reset_time', nowStr);
+        setExpiredResetTime(nowStr);
+        showToast('success', 'รีเซ็ตข้อมูลยาหมดอายุเรียบร้อยแล้ว');
+      }
+    });
+  };
+
   const showToast = (icon, title) => {
     Swal.fire({
       toast: true,
@@ -340,6 +379,12 @@ export default function App() {
       timer: 2600,
       timerProgressBar: true
     });
+  };
+
+  const handleRestoreExpiredData = () => {
+  localStorage.removeItem('pharmacy_expired_reset_time');
+  setExpiredResetTime(null);
+  showToast('success', 'คืนค่าข้อมูลยาหมดอายุเรียบร้อยแล้ว');
   };
 
   const generateNextProductCode = (productList) => {
@@ -439,7 +484,11 @@ export default function App() {
         });
       }
     } catch (err) {
-      const matchedLocalUser = usersList.find(u => u.username === loginUsername);
+      // ✅ แก้ไข: เพิ่มการเช็ครหัสผ่าน (loginPassword) ควบคู่กับ username
+      const matchedLocalUser = usersList.find(
+        u => u.username === loginUsername && (u.password === loginPassword || u.password_hash === loginPassword)
+      );
+
       if (matchedLocalUser) {
         const userObj = { 
           user_id: matchedLocalUser.user_id || matchedLocalUser.id, 
@@ -461,6 +510,7 @@ export default function App() {
           showConfirmButton: false
         });
       } else {
+        // หากใส่รหัสผ่านผิด หรือไม่พบผู้ใช้ จะแจ้งเตือนข้อผิดพลาดตามปกติ
         Swal.fire({
           icon: 'error',
           title: 'เข้าสู่ระบบไม่สำเร็จ',
@@ -471,25 +521,32 @@ export default function App() {
     } finally {
       setLoginLoading(false);
     }
-  };
+  };  
 
   // LOGOUT WITH CHATBOT RESET
   const handleLogout = () => {
     Swal.fire({
-      title: 'ออกจากระบบ',
-      text: 'คุณต้องการออกจากระบบใช่หรือไม่?',
-      icon: 'question',
+      title: 'ยืนยันการออกจากระบบ?',
+      text: 'คุณต้องการออกจากระบบใช่หรือไม่',
+      icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: MONO.PRIMARY,
-      cancelButtonColor: MONO.SOFT,
+      confirmButtonColor: MONO.PRIMARY || '#3085d6',
+      cancelButtonColor: '#d33',
       confirmButtonText: 'ออกจากระบบ',
       cancelButtonText: 'ยกเลิก'
     }).then((result) => {
       if (result.isConfirmed) {
+        // ล้างสถานะและ LocalStorage
         setCurrentUser(null);
         localStorage.removeItem('pharmacy_user');
-        setChatMessages(INITIAL_CHAT_MESSAGES);
-        setChatInput('');
+
+        // แจ้งเตือนเมื่อออกจากระบบสำเร็จ
+        Swal.fire({
+          icon: 'success',
+          title: 'ออกจากระบบสำเร็จ',
+          timer: 1500,
+          showConfirmButton: false
+        });
       }
     });
   };
@@ -911,7 +968,7 @@ export default function App() {
           `• มูลค่ายาพร้อมขาย (ราคาทุน): **฿${totalCostValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })}**\n` +
           `• มูลค่าราคาขายรวม: **฿${totalSellingValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })}**\n` +
           `• ประมาณการกำไรขั้นต้น: **฿${(totalSellingValue - totalCostValue).toLocaleString('th-TH', { minimumFractionDigits: 2 })}**\n` +
-          `• มูลค่ายาหมดอายุ: **฿${totalExpiredCostValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })}**`;
+          `• มูลค่ายาหมดอายุ: **฿${displayExpiredCostValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })}**`;
       }
       else if (isStock) {
         // FULL LIST OF LOW STOCK ITEMS (NO LIMIT / RANKING)
@@ -935,7 +992,7 @@ export default function App() {
               : `🎉 ไม่พบรายการยาที่จะหมดอายุใน ${expiryThreshold} วันนี้ครับ`);
         } else {
           botReply = `⏳ **รายงานยาล็อตใกล้หมดอายุและหมดอายุแล้ว**\n\n` +
-            `• หมดอายุแล้ว (ห้ามจ่าย): **${expiredLotsList.length} ล็อต** (รวม ฿${totalExpiredCostValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })})\n` +
+            `• หมดอายุแล้ว (ห้ามจ่าย): **${displayExpiredLotsList.length} ล็อต** (รวม ฿${displayExpiredCostValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })})\n` +
             `• ใกล้หมดอายุ (ภายใน ${expiryThreshold} วัน): **${expiringLotsList.length} ล็อต** (รวม ฿${totalExpiringCostValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })})\n\n` +
             (expiringLotsList.length > 0 
               ? `⚠️ **รายการใกล้หมดอายุทั้งหมด (ควรเร่งระบาย):**\n${expiringDetails}` 
@@ -1122,24 +1179,84 @@ export default function App() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    const finalProductType = isCustomType ? customTypeName.trim() : formData.product_type;
-    const finalCategory = isCustomCategory ? customCategoryName.trim() : formData.category;
-    const finalUnit = isCustomUnit ? customUnitName.trim() : formData.unit;
+  e.preventDefault();
 
-    const payload = {
-      ...formData,
-      product_type: finalProductType,
-      category: finalCategory,
-      unit: finalUnit
-    };
+  const finalProductType = isCustomType ? customTypeName.trim() : formData.product_type;
+  const finalCategory = isCustomCategory ? customCategoryName.trim() : formData.category;
+  const finalUnit = isCustomUnit ? customUnitName.trim() : formData.unit;
 
-    try {
-      await axios.post(`${API_URL}/products`, payload);
-      Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ!', text: 'บันทึกข้อมูลการรับยาเข้าสต็อกเรียบร้อยแล้ว', confirmButtonColor: MONO.PRIMARY });
-    } catch (err) {
-      Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ!', text: 'บันทึกการรับยาเข้าสต็อกเรียบร้อย (โหมดสาธิต)', confirmButtonColor: MONO.PRIMARY });
-    }
+  // 🛑 1. ตรวจสอบข้อมูลจำเป็นหลัก (Required Fields)
+  if (!formData.product_code?.trim()) {
+    return Swal.fire({ icon: 'warning', title: 'กรุณากรอกรหัสสินค้า', confirmButtonColor: MONO.PRIMARY });
+  }
+  if (!formData.product_name?.trim()) {
+    return Swal.fire({ icon: 'warning', title: 'กรุณากรอกชื่อสินค้า', confirmButtonColor: MONO.PRIMARY });
+  }
+  if (!formData.quantity || parseInt(formData.quantity) <= 0) {
+    return Swal.fire({ icon: 'warning', title: 'กรุณากรอกจำนวนสินค้าให้ถูกต้อง', confirmButtonColor: MONO.PRIMARY });
+  }
+
+  // 🛑 2. ตรวจสอบ Custom Fields
+  if (isCustomType && !finalProductType) {
+    return Swal.fire({ icon: 'warning', title: 'กรุณากรอกรูปแบบยาใหม่', confirmButtonColor: MONO.PRIMARY });
+  }
+  if (isCustomCategory && !finalCategory) {
+    return Swal.fire({ icon: 'warning', title: 'กรุณากรอกหมวดหมู่ยาใหม่', confirmButtonColor: MONO.PRIMARY });
+  }
+  if (isCustomUnit && !finalUnit) {
+    return Swal.fire({ icon: 'warning', title: 'กรุณากรอกหน่วยนับใหม่', confirmButtonColor: MONO.PRIMARY });
+  }
+
+  const payload = {
+    ...formData,
+    product_type: finalProductType,
+    category: finalCategory,
+    unit: finalUnit
+  };
+
+  try {
+    const response = await axios.post(`${API_URL}/products`, payload);
+
+    await Swal.fire({ 
+      icon: 'success', 
+      title: 'บันทึกสำเร็จ!', 
+      text: response.data.message || 'บันทึกข้อมูลการรับยาเข้าสต็อกเรียบร้อยแล้ว', 
+      confirmButtonColor: MONO.PRIMARY 
+    });
+
+    if (typeof fetchProducts === 'function') await fetchProducts();
+    if (typeof fetchMasterData === 'function') await fetchMasterData();
+
+    setFormData({
+      product_code: typeof generateNextProductCode === 'function' ? generateNextProductCode(products) : '',
+      product_name: '',
+      product_type: 'tablet',
+      unit: 'เม็ด',
+      category: 'ยาสามัญประจำบ้าน',
+      cost_price: '',
+      selling_price: '',
+      location: 'ตู้ A1',
+      lot_number: '',
+      expiry_date: '',
+      quantity: ''
+    });
+
+    setIsCustomType(false);
+    setCustomTypeName('');
+    setIsCustomCategory(false);
+    setCustomCategoryName('');
+    setIsCustomUnit(false);
+    setCustomUnitName('');
+
+  } catch (err) {
+    console.error('Save Product Error:', err);
+    Swal.fire({ 
+      icon: 'error', 
+      title: 'บันทึกไม่สำเร็จ!', 
+      text: err.response?.data?.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง', 
+      confirmButtonColor: MONO.PRIMARY 
+    });
+  }
 
     const updatedProducts = await axios.get(`${API_URL}/products`).catch(() => ({ data: [] }));
     const dataList = updatedProducts.data?.data || updatedProducts.data || [];
@@ -1315,6 +1432,11 @@ export default function App() {
 
   const expiredChartList = Object.values(expiredLotsGrouped).sort((a, b) => b.totalCost - a.totalCost);
   const maxExpiredCost = expiredChartList.length > 0 ? Math.max(...expiredChartList.map(item => item.totalCost)) : 1;
+
+  // DISPLAY VALUES FOR EXPIRED CARDS BASED ON RESET STATE
+  const displayExpiredCostValue = isExpiredResetActive ? 0 : totalExpiredCostValue;
+  const displayExpiredLotsList = isExpiredResetActive ? [] : expiredLotsList;
+  const displayExpiredChartList = isExpiredResetActive ? [] : expiredChartList;
 
   const filteredProducts = safeProducts.filter(p => {
     const matchesSearch = p.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1726,17 +1848,70 @@ export default function App() {
                 
                 {/* STAT CARDS */}
                 <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', flexShrink: 0 }}>
-                  <div style={statCardStyle}>
-                    <div>
-                      <p style={statLabel}>มูลค่ายาหมดอายุ (สูญเสีย)</p>
+                  
+                  {/* CARD 1: มูลค่ายาหมดอายุ (สูญเสีย) */}
+                  <div style={{ ...statCardStyle, position: 'relative' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '6px' }}>
+                        <p style={{ ...statLabel, margin: 0 }}>มูลค่ายาหมดอายุ (สูญเสีย)</p>
+                        <button 
+                          onClick={handleResetExpiredData}
+                          title="รีเซ็ตค่าตัวเลข"
+                          style={{
+                            background: MONO.PALE,
+                            border: `1px solid ${MONO.TINT}`,
+                            borderRadius: '6px',
+                            padding: '2px 6px',
+                            cursor: 'pointer',
+                            color: MONO.DARK,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '11px',
+                            fontWeight: '500'
+                          }}
+                        >
+                          <RotateCcw size={10} />
+                        </button>
+                      </div>
+
+                      {isExpiredResetActive && (
+                        <button 
+                          onClick={handleRestoreExpiredData}
+                          style={{
+                            background: MONO.PRIMARY,
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '2px 8px',
+                            cursor: 'pointer',
+                            color: '#ffffff',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '11px',
+                            fontWeight: '500'
+                          }}
+                        >
+                          <RotateCcw size={10} /> คืนค่าข้อมูล
+                        </button>
+                      )}
+
                       <h3 style={{ ...statVal, color: ALERTS.EXPIRED_TEXT }}>
-                        ฿{totalExpiredCostValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                        ฿{displayExpiredCostValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
                       </h3>
-                      <p style={{ fontSize: '11px', color: MONO.DARK, margin: '4px 0 0 0', fontWeight: '500' }}>
-                        รวม {expiredLotsList.length} ล็อตหมดอายุ
-                      </p>
+                      
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '11px', color: MONO.DARK, fontWeight: '500' }}>
+                          รวม {displayExpiredLotsList.length} ล็อตหมดอายุ
+                        </span>
+                        <span style={{ fontSize: '10px', color: MONO.SOFT, fontWeight: '400' }}>
+                          (จะรีเซ็ตทุกๆ 1 ปี)
+                        </span>
+                      </div>
                     </div>
-                    <div style={statIcon(ALERTS.EXPIRED_BG, ALERTS.EXPIRED_TEXT)}><AlertOctagon size={20} /></div>
+                    <div style={{ ...statIcon(ALERTS.EXPIRED_BG, ALERTS.EXPIRED_TEXT), marginLeft: '8px' }}>
+                      <AlertOctagon size={20} />
+                    </div>
                   </div>
 
                   <div style={statCardStyle}>
@@ -1756,9 +1931,13 @@ export default function App() {
                       <h3 style={{ ...statVal, color: MONO.DEEP }}>
                         ฿{totalCostValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
                       </h3>
-                      <p style={{ fontSize: '11px', color: MONO.DARK, margin: '4px 0 0 0', fontWeight: '500' }}>มูลค่าขาย: ฿{totalSellingValue.toLocaleString()}</p>
+                      <p style={{ fontSize: '11px', color: MONO.DARK, margin: '4px 0 0 0', fontWeight: '500' }}>
+                        มูลค่าขาย: ฿{totalSellingValue.toLocaleString()}
+                      </p>
                     </div>
-                    <div style={statIcon(ALERTS.SUCCESS_BG, ALERTS.SUCCESS_TEXT)}><DollarSign size={20} /></div>
+                    <div style={statIcon(ALERTS.SUCCESS_BG, ALERTS.SUCCESS_TEXT)}>
+                      <span style={{ fontSize: '18px', fontWeight: '700', lineHeight: 1 }}>฿</span>
+                    </div>
                   </div>
 
                   <div style={statCardStyle}>
@@ -1845,24 +2024,48 @@ export default function App() {
                     </div>
                   </div>
 
+                  {/* CARD 2: ยาล็อตที่หมดอายุแล้วในคลัง */}
                   <div className="chart-card-box" style={{ ...panelCardStyle, padding: '16px 18px', height: '280px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <AlertOctagon size={18} color={ALERTS.EXPIRED_TEXT} />
                         <h3 style={{ ...panelTitle, fontSize: '14px' }}>ยาล็อตที่หมดอายุแล้วในคลัง</h3>
                       </div>
-                      <span style={{ fontSize: '11px', fontWeight: '600', color: ALERTS.EXPIRED_TEXT, backgroundColor: ALERTS.EXPIRED_BG, padding: '2px 8px', borderRadius: '12px' }}>
-                        {expiredLotsList.length} ล็อต
-                      </span>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+  
+                        <button 
+                          onClick={handleResetExpiredData}
+                          title="รีเซ็ตยาล็อตหมดอายุ"
+                          style={{
+                            background: MONO.PALE,
+                            border: `1px solid ${MONO.TINT}`,
+                            borderRadius: '6px',
+                            padding: '2px 6px',
+                            cursor: 'pointer',
+                            color: MONO.DARK,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '11px',
+                            fontWeight: '500'
+                          }}
+                        >
+                          <RotateCcw size={10} />
+                        </button>
+                        <span style={{ fontSize: '11px', fontWeight: '600', color: ALERTS.EXPIRED_TEXT, backgroundColor: ALERTS.EXPIRED_BG, padding: '2px 8px', borderRadius: '12px' }}>
+                          {displayExpiredLotsList.length} ล็อต
+                        </span>
+                      </div>
                     </div>
 
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', paddingRight: '4px' }}>
-                      {expiredChartList.length === 0 ? (
+                      {displayExpiredChartList.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '32px 12px', color: ALERTS.SUCCESS_TEXT, fontSize: '13px', fontWeight: '600' }}>
                           🎉 ไม่พบยาล็อตหมดอายุในคลัง
                         </div>
                       ) : (
-                        expiredChartList.map((item, idx) => {
+                        displayExpiredChartList.map((item, idx) => {
                           const barWidthPercentage = Math.min(100, Math.max(8, (item.totalCost / maxExpiredCost) * 100)).toFixed(1);
                           return (
                             <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -2070,24 +2273,31 @@ export default function App() {
                         <label style={labelStyle}>รูปแบบยา</label>
                         <button 
                           type="button" 
-                          onClick={() => setIsCustomType(!isCustomType)} 
+                          onClick={() => {
+                            setIsCustomType(!isCustomType);
+                            if (isCustomType) setCustomTypeName('');
+                          }} 
                           style={{ background: 'none', border: 'none', color: MONO.PRIMARY, fontSize: '11px', fontWeight: '600', cursor: 'pointer', padding: 0 }}
                         >
                           {isCustomType ? '← เลือกที่มี' : '+ เพิ่มรูปแบบ'}
                         </button>
                       </div>
-
                       {isCustomType ? (
                         <input 
                           type="text" 
-                          placeholder="ระบุ เช่น ยาหยอดตา" 
+                          placeholder="เช่น ยาฉีด, ยาพ่น" 
                           value={customTypeName} 
                           onChange={(e) => setCustomTypeName(e.target.value)} 
-                          required 
-                          style={{ ...inputStyle, borderColor: MONO.PRIMARY }} 
+                          style={inputStyle} 
+                          required
                         />
                       ) : (
-                        <select name="product_type" value={formData.product_type} onChange={handleFormInputChange} style={selectStyle}>
+                        <select 
+                          name="product_type" 
+                          value={formData.product_type} 
+                          onChange={handleFormInputChange} 
+                          style={selectStyle}
+                        >
                           {productTypes.map(t => (
                             <option key={t.id} value={t.id}>{t.label}</option>
                           ))}
@@ -2117,24 +2327,31 @@ export default function App() {
                         <label style={labelStyle}>หมวดหมู่ยา</label>
                         <button 
                           type="button" 
-                          onClick={() => setIsCustomCategory(!isCustomCategory)} 
+                          onClick={() => {
+                            setIsCustomCategory(!isCustomCategory);
+                            if (isCustomCategory) setCustomCategoryName('');
+                          }} 
                           style={{ background: 'none', border: 'none', color: MONO.PRIMARY, fontSize: '11px', fontWeight: '600', cursor: 'pointer', padding: 0 }}
                         >
                           {isCustomCategory ? '← เลือกที่มี' : '+ เพิ่มหมวดหมู่'}
                         </button>
                       </div>
-
                       {isCustomCategory ? (
                         <input 
                           type="text" 
-                          placeholder="ระบุ เช่น ยาควบคุมพิเศษ" 
+                          placeholder="ระบุหมวดหมู่ใหม่..." 
                           value={customCategoryName} 
                           onChange={(e) => setCustomCategoryName(e.target.value)} 
-                          required 
-                          style={{ ...inputStyle, borderColor: MONO.PRIMARY }} 
+                          style={inputStyle} 
+                          required
                         />
                       ) : (
-                        <select name="category" value={formData.category} onChange={handleFormInputChange} style={selectStyle}>
+                        <select 
+                          name="category" 
+                          value={formData.category} 
+                          onChange={handleFormInputChange} 
+                          style={selectStyle}
+                        >
                           {categories.map(c => (
                             <option key={c.id} value={c.id}>{c.label}</option>
                           ))}
@@ -2147,24 +2364,31 @@ export default function App() {
                         <label style={labelStyle}>หน่วยนับ</label>
                         <button 
                           type="button" 
-                          onClick={() => setIsCustomUnit(!isCustomUnit)} 
+                          onClick={() => {
+                            setIsCustomUnit(!isCustomUnit);
+                            if (isCustomUnit) setCustomUnitName('');
+                          }} 
                           style={{ background: 'none', border: 'none', color: MONO.PRIMARY, fontSize: '11px', fontWeight: '600', cursor: 'pointer', padding: 0 }}
                         >
                           {isCustomUnit ? '← เลือกที่มี' : '+ เพิ่มหน่วยนับ'}
                         </button>
                       </div>
-
                       {isCustomUnit ? (
                         <input 
                           type="text" 
-                          placeholder="ระบุ เช่น กระปุก, แพ็ค" 
+                          placeholder="เช่น มิลลิลิตร, ตลับ" 
                           value={customUnitName} 
                           onChange={(e) => setCustomUnitName(e.target.value)} 
-                          required 
-                          style={{ ...inputStyle, borderColor: MONO.PRIMARY }} 
+                          style={inputStyle} 
+                          required
                         />
                       ) : (
-                        <select name="unit" value={formData.unit} onChange={handleFormInputChange} style={selectStyle}>
+                        <select 
+                          name="unit" 
+                          value={formData.unit} 
+                          onChange={handleFormInputChange} 
+                          style={selectStyle}
+                        >
                           {units.map(u => (
                             <option key={u.id} value={u.id}>{u.label}</option>
                           ))}
@@ -2307,39 +2531,34 @@ export default function App() {
                                   {hasValidLot ? (
                                     <div>
                                       <span style={fefoBadge}>⭐ {nearestValidLot.lot_number}</span>
-                                      <div style={{ fontSize: '11px', color: daysLeft <= 90 ? ALERTS.WARNING_TEXT : MONO.DEEP, marginTop: '2px' }}>
-                                        EXP: {formatDate(nearestValidLot.expiry_date || nearestValidLot.nearest_expiry)} ({daysLeft} วัน)
+                                      <div style={{ fontSize: '11px', color: MONO.DARK, marginTop: '2px' }}>
+                                        EXP: {formatDate(nearestValidLot.expiry_date || nearestValidLot.nearest_expiry)}
                                       </div>
                                     </div>
                                   ) : (
-                                    <span style={{ fontSize: '12px', color: ALERTS.EXPIRED_TEXT, fontWeight: '600' }}>
-                                      ❌ ไม่มีล็อตพร้อมเบิก
-                                    </span>
+                                    <span style={{ fontSize: '11px', color: ALERTS.EXPIRED_TEXT, fontWeight: '600' }}>- ไม่มีล็อตเบิกได้ -</span>
                                   )}
                                 </td>
-                                
+
                                 <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
                                   {isEditingMin ? (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                       <input 
                                         type="number" 
                                         value={tempMinStockMap[itemId] ?? minThreshold} 
                                         onChange={(e) => handleMinStockChange(itemId, e.target.value)}
-                                        style={{ width: '60px', height: '30px', padding: '0 6px', borderRadius: '4px', border: `1px solid ${MONO.PRIMARY}`, fontSize: '13px' }}
-                                        autoFocus
+                                        style={{ width: '60px', height: '28px', padding: '0 6px', fontSize: '12px', border: `1px solid ${MONO.PRIMARY}`, borderRadius: '4px' }}
                                       />
                                       <button onClick={(e) => handleSaveMinStock(e, item)} style={btnSaveMini}>
-                                        <Save size={12} />
+                                        <Save size={11} />
                                       </button>
                                     </div>
                                   ) : (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                      <span style={{ fontWeight: '500' }}>≤ {minThreshold} {item.unit}</span>
-                                      {isAdmin && (
-                                        <button onClick={(e) => handleStartEditMinStock(e, item)} style={btnEditMini} title="แก้ไขเกณฑ์เตือน">
-                                          <Edit2 size={11} /> แก้ไข
-                                        </button>
-                                      )}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span>≤ {minThreshold} {item.unit}</span>
+                                      <button onClick={(e) => handleStartEditMinStock(e, item)} style={btnEditMini} title="แก้ไขเกณฑ์เตือนสต็อกต่ำ">
+                                        <Edit2 size={11} />
+                                      </button>
                                     </div>
                                   )}
                                 </td>
@@ -2351,13 +2570,19 @@ export default function App() {
                                 </td>
 
                                 <td style={tdStyle}>
-                                  <span style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', padding: '3px 8px', borderRadius: '12px',
-                                    backgroundColor: sellableQty === 0 ? ALERTS.EXPIRED_BG : (isLow ? ALERTS.WARNING_BG : ALERTS.SUCCESS_BG),
-                                    color: sellableQty === 0 ? ALERTS.EXPIRED_TEXT : (isLow ? ALERTS.WARNING_TEXT : ALERTS.SUCCESS_TEXT)
-                                  }}>
-                                    {sellableQty === 0 ? '❌ หมดคลัง' : (isLow ? '⚠️ สต็อกต่ำ' : '✅ ปกติ')}
-                                  </span>
+                                  {sellableQty === 0 ? (
+                                    <span style={{ fontSize: '11px', fontWeight: '600', color: ALERTS.EXPIRED_TEXT, backgroundColor: ALERTS.EXPIRED_BG, padding: '2px 8px', borderRadius: '12px' }}>
+                                      สินค้าหมด
+                                    </span>
+                                  ) : isLow ? (
+                                    <span style={{ fontSize: '11px', fontWeight: '600', color: ALERTS.WARNING_TEXT, backgroundColor: ALERTS.WARNING_BG, padding: '2px 8px', borderRadius: '12px' }}>
+                                      สต็อกต่ำ
+                                    </span>
+                                  ) : (
+                                    <span style={{ fontSize: '11px', fontWeight: '600', color: ALERTS.SUCCESS_TEXT, backgroundColor: ALERTS.SUCCESS_BG, padding: '2px 8px', borderRadius: '12px' }}>
+                                      ปกติ
+                                    </span>
+                                  )}
                                 </td>
                               </tr>
                             );
@@ -2373,109 +2598,99 @@ export default function App() {
 
           {/* 4. CHATBOT VIEW */}
           {activeMenu === 'chatbot' && (
-            <div className="grid-responsive-2" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '16px', height: '100%', minHeight: 0 }}>
+            <div className="grid-responsive-2" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '16px', height: '100%', minHeight: 0 }}>
               <div style={panelCardStyle}>
                 <div style={panelHeader}>
-                  <Bot size={20} color={MONO.PRIMARY} />
-                  <div>
-                    <h3 style={panelTitle}>สอบถามข้อมูลแชทบอทอัจฉริยะ</h3>
-                    <p style={{ fontSize: '11px', color: MONO.DARK, margin: 0 }}>
-                      {!isAdmin ? 'เภสัชกร' : 'ผู้ดูแลคลังสินค้า'}
-                    </p>
-                  </div>
+                  <Bot size={18} color={MONO.PRIMARY} />
+                  <h3 style={panelTitle}>ระบบผู้ช่วยแชทบอทตอบคำถามคลังยา (LALITA AI Assistant)</h3>
                 </div>
 
                 <div ref={chatMessagesBoxRef} style={{ flex: 1, padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', backgroundColor: MONO.PALE }}>
                   {chatMessages.map((msg) => (
-                    <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: msg.sender === 'user' ? 'flex-end' : 'flex-start' }}>
-                      <div style={{
-                        maxWidth: '85%',
-                        padding: '12px 16px',
+                    <div 
+                      key={msg.id} 
+                      style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        alignItems: msg.sender === 'user' ? 'flex-end' : 'flex-start' 
+                      }}
+                    >
+                      <div style={{ 
+                        maxWidth: '80%', 
+                        padding: '12px 16px', 
                         borderRadius: msg.sender === 'user' ? '16px 16px 2px 16px' : '16px 16px 16px 2px',
                         backgroundColor: msg.sender === 'user' ? MONO.PRIMARY : '#ffffff',
                         color: msg.sender === 'user' ? '#ffffff' : MONO.DARKEST,
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                        border: msg.sender === 'bot' ? `1px solid ${MONO.TINT}` : 'none',
+                        border: msg.sender === 'user' ? 'none' : `1px solid ${MONO.TINT}`,
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
                         fontSize: '13px',
-                        lineHeight: '1.6',
-                        whiteSpace: 'pre-line'
+                        whiteSpace: 'pre-wrap',
+                        lineHeight: '1.5'
                       }}>
                         {msg.text}
-
                         {msg.image && (
-                          <div style={{ marginTop: '12px', textAlign: 'center' }}>
-                            <img src={msg.image} alt="LINE QR Code" style={{ width: '180px', height: '180px', borderRadius: '12px', border: `1px solid ${MONO.TINT}`, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }} />
+                          <div style={{ marginTop: '10px' }}>
+                            <img src={msg.image} alt="QR" style={{ maxWidth: '180px', borderRadius: '8px', border: `1px solid ${MONO.TINT}` }} />
                           </div>
                         )}
                       </div>
-                      <span style={{ fontSize: '10px', color: MONO.SOFT, marginTop: '4px', padding: '0 4px' }}>{msg.time}</span>
+                      <span style={{ fontSize: '10px', color: MONO.SOFT, marginTop: '4px', padding: '0 4px' }}>
+                        {msg.time}
+                      </span>
                     </div>
                   ))}
                 </div>
 
-                <div style={{ padding: '14px 16px', borderTop: `1px solid ${MONO.TINT}`, backgroundColor: '#ffffff', display: 'flex', gap: '10px' }}>
+                <div style={{ padding: '12px 16px', backgroundColor: '#ffffff', borderTop: `1px solid ${MONO.TINT}`, display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <input 
                     type="text" 
-                    placeholder={!isAdmin ? "พิมพ์คำถาม เช่น เช็คยาใกล้หมดอายุ, สรุปยอดส่งคลัง, LINE..." : "พิมพ์คำถามเกี่ยวกับสต็อก ยาหมดอายุ FEFO..."} 
+                    placeholder="พิมพ์คำถามสอบถามข้อมูลคลังยา..." 
                     value={chatInput} 
-                    onChange={(e) => setChatInput(e.target.value)}
+                    onChange={(e) => setChatInput(e.target.value)} 
                     onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                    style={{ ...inputStyle, height: '42px', fontSize: '13px' }}
+                    style={inputStyle} 
                   />
-                  <button onClick={() => handleSendMessage()} style={{ ...btnSubmit, width: '48px', height: '42px', borderRadius: '8px', flexShrink: 0 }}>
-                    <Send size={18} />
+                  <button 
+                    onClick={() => handleSendMessage()} 
+                    style={{ ...btnSubmit, width: 'auto', padding: '0 18px', flexShrink: 0 }}
+                  >
+                    <Send size={16} /> ส่งคำถาม
                   </button>
                 </div>
               </div>
 
-              {/* QUICK QUESTIONS SIDEBAR */}
+              {/* QUICK FAQ SIDE PANEL */}
               <div style={panelCardStyle}>
                 <div style={panelHeader}>
                   <HelpCircle size={18} color={MONO.PRIMARY} />
-                  <h3 style={panelTitle}>คำถามที่พบบ่อย (Quick Query)</h3>
+                  <h3 style={panelTitle}>คำถามที่พบบ่อย (FAQ)</h3>
                 </div>
 
-                <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto' }}>
-                  {/* RESTRICTED QUICK QUERY BUTTONS FOR PHARMACIST */}
-                  {!isAdmin ? (
-                    <>
-                      <button onClick={() => handleSendMessage('การรับแจ้งเตือน LINE อัตโนมัติ (สแกน QR)')} style={quickQueryBtn}>
-                        📲 รับแจ้งเตือน LINE อัตโนมัติ (สแกน QR)
-                      </button>
-                      <button onClick={() => handleSendMessage('สรุปยอดส่งคลัง')} style={quickQueryBtn}>
-                        📦 สรุปยอดส่งคลัง / สต็อกยา
-                      </button>
-                      <button onClick={() => handleSendMessage('เช็คยาใกล้หมดอายุ')} style={quickQueryBtn}>
-                        ⏳ เช็คยาใกล้หมดอายุ
-                      </button>
-                      <button onClick={() => handleSendMessage('วิธีการเบิกจ่ายยาตามหลัก FEFO')} style={quickQueryBtn}>
-                        💡 วิธีการเบิกจ่ายยาตามหลัก FEFO
-                      </button>
-                      <button onClick={() => handleSendMessage('สิทธิ์การใช้งานระบบ Admin / Pharmacist')} style={quickQueryBtn}>
-                        🔒 สิทธิ์การใช้งานระบบ Admin / Pharmacist
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button onClick={() => handleSendMessage('สรุปมูลค่าคลังสินค้า')} style={quickQueryBtn}>
-                        📊 สรุปมูลค่าทุนและราคาขาย
-                      </button>
-                      <button onClick={() => handleSendMessage('สรุปยอดส่งคลัง')} style={quickQueryBtn}>
-                        📦 สรุปยอดส่งคลัง / ยาต่ำกว่าเกณฑ์
-                      </button>
-                      <button onClick={() => handleSendMessage('เช็คยาใกล้หมดอายุ')} style={quickQueryBtn}>
-                        ⏳ ยาใกล้หมดอายุทั้งหมด
-                      </button>
-                      <button onClick={() => handleSendMessage('วิธีการเบิกจ่ายยาตามหลัก FEFO')} style={quickQueryBtn}>
-                        💡 วิธีการเบิกจ่ายยาตามหลัก FEFO
-                      </button>
-                      <button onClick={() => handleSendMessage('การรับแจ้งเตือน LINE อัตโนมัติ (สแกน QR)')} style={quickQueryBtn}>
-                        📲 ลงทะเบียน LINE Notify (สแกน QR)
-                      </button>
-                      <button onClick={() => handleSendMessage('สิทธิ์การใช้งานระบบ Admin / Pharmacist')} style={quickQueryBtn}>
-                        🔒 สิทธิ์การใช้งานระบบ Admin / Pharmacist
-                      </button>
-                    </>
+                <div style={{ padding: '14px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <button onClick={() => handleSendMessage('สรุปยอดส่งคลัง')} style={quickQueryBtn}>
+                    📦 สรุปยอดส่งคลัง / เช็คยาสต็อกต่ำ
+                  </button>
+
+                  <button onClick={() => handleSendMessage('เช็คยาใกล้หมดอายุ')} style={quickQueryBtn}>
+                    ⏳ เช็ครายการยาใกล้หมดอายุ
+                  </button>
+
+                  <button onClick={() => handleSendMessage('ขอ QR สแกนรับแจ้งเตือน LINE')} style={quickQueryBtn}>
+                    📲 รับแจ้งเตือนผ่าน LINE อัตโนมัติ (สแกน QR)
+                  </button>
+
+                  <button onClick={() => handleSendMessage('วิธีเบิกจ่ายยา FEFO')} style={quickQueryBtn}>
+                    💡 วิธีการเบิกจ่ายยาตามหลัก FEFO
+                  </button>
+
+                  <button onClick={() => handleSendMessage('สิทธิ์ผู้ใช้งาน')} style={quickQueryBtn}>
+                    🔒 สิทธิ์การใช้งาน Admin และ Pharmacist
+                  </button>
+
+                  {isAdmin && (
+                    <button onClick={() => handleSendMessage('สรุปมูลค่าคลัง')} style={quickQueryBtn}>
+                      📊 สรุปมูลค่าคลังสินค้าทั้งหมด
+                    </button>
                   )}
                 </div>
               </div>
@@ -2485,53 +2700,84 @@ export default function App() {
           {/* 5. PERMISSIONS VIEW */}
           {activeMenu === 'permissions' && isAdmin && (
             <div className="grid-responsive-2" style={twoColumnGridStyle}>
-              {/* FORM REGISTER USER */}
+              {/* NEW USER FORM */}
               <div style={panelCardStyle}>
                 <div style={panelHeader}>
                   <UserPlus size={18} color={MONO.PRIMARY} />
                   <h3 style={panelTitle}>ลงทะเบียนผู้ใช้งานใหม่</h3>
                 </div>
 
-                <form onSubmit={handleCreateUser} style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px', flex: 1, overflowY: 'auto' }}>
+                <form onSubmit={handleCreateUser} style={{ padding: '18px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <div style={formGroup}>
-                    <div style={labelHeaderStyle}><label style={labelStyle}>ชื่อผู้ใช้งาน (Username)*</label></div>
-                    <input type="text" placeholder="เช่น pharmacist2" value={newUserForm.username} onChange={(e) => setNewUserForm({ ...newUserForm, username: e.target.value })} required style={inputStyle} />
+                    <label style={labelStyle}>ชื่อผู้ใช้งาน (Username)</label>
+                    <input 
+                      type="text" 
+                      placeholder="เช่น pharmacist2" 
+                      value={newUserForm.username} 
+                      onChange={(e) => setNewUserForm({ ...newUserForm, username: e.target.value })} 
+                      required 
+                      style={inputStyle} 
+                    />
                   </div>
 
                   <div style={formGroup}>
-                    <div style={labelHeaderStyle}><label style={labelStyle}>ชื่อ-นามสกุล (Name)*</label></div>
-                    <input type="text" placeholder="เช่น ภก.สมชาย สายใจ" value={newUserForm.name} onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })} required style={inputStyle} />
+                    <label style={labelStyle}>ชื่อ-นามสกุล ผู้ใช้งาน</label>
+                    <input 
+                      type="text" 
+                      placeholder="เช่น ภก. สมชาย ใจดี" 
+                      value={newUserForm.name} 
+                      onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })} 
+                      required 
+                      style={inputStyle} 
+                    />
                   </div>
 
                   <div style={formGroup}>
-                    <div style={labelHeaderStyle}><label style={labelStyle}>รหัสผ่าน (Password)*</label></div>
-                    <input type="password" placeholder="ตั้งรหัสผ่าน" value={newUserForm.password} onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })} required style={inputStyle} />
+                    <label style={labelStyle}>รหัสผ่าน (Password)</label>
+                    <input 
+                      type="password" 
+                      placeholder="กำหนดรหัสผ่าน" 
+                      value={newUserForm.password} 
+                      onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })} 
+                      required 
+                      style={inputStyle} 
+                    />
                   </div>
 
                   <div style={formGroup}>
-                    <div style={labelHeaderStyle}><label style={labelStyle}>บทบาท/สิทธิ์การใช้งาน (Role)*</label></div>
-                    <select value={newUserForm.role} onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value })} style={selectStyle}>
+                    <label style={labelStyle}>บทบาท / สิทธิ์การใช้งาน (Role)</label>
+                    <select 
+                      value={newUserForm.role} 
+                      onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value })} 
+                      style={selectStyle}
+                    >
                       <option value="pharmacist">Pharmacist (เภสัชกรหน้าร้าน)</option>
-                      <option value="admin">Admin (ผู้ดูแลระบบ)</option>
+                      <option value="admin">Admin (ผู้ดูแลระบบคลังยา)</option>
                     </select>
                   </div>
 
                   <div style={formGroup}>
-                    <div style={labelHeaderStyle}><label style={labelStyle}>LINE User ID (สำหรับรับแจ้งเตือน)</label></div>
-                    <input type="text" placeholder="เช่น U1234567890abcdef" value={newUserForm.line_user_id} onChange={(e) => setNewUserForm({ ...newUserForm, line_user_id: e.target.value })} style={inputStyle} />
+                    <label style={labelStyle}>LINE User ID (สำหรับรับแจ้งเตือนอัตโนมัติ)</label>
+                    <input 
+                      type="text" 
+                      placeholder="เช่น U123456789abcdef... (ระบุหรือไม่ก็ได้)" 
+                      value={newUserForm.line_user_id} 
+                      onChange={(e) => setNewUserForm({ ...newUserForm, line_user_id: e.target.value })} 
+                      style={inputStyle} 
+                    />
                   </div>
 
-                  <button type="submit" style={{ ...btnSubmit, marginTop: '8px' }}>
-                    <UserPlus size={16} /> บันทึกสิทธิ์ผู้ใช้งาน
+                  <button type="submit" style={{ ...btnSubmit, marginTop: '12px' }}>
+                    <Plus size={18} /> บันทึกเพิ่มผู้ใช้งาน
                   </button>
                 </form>
               </div>
 
-              {/* TABLE USERS LIST */}
+              {/* USERS LIST TABLE */}
               <div style={panelCardStyle}>
                 <div style={panelHeader}>
                   <ShieldCheck size={18} color={MONO.PRIMARY} />
-                  <h3 style={panelTitle}>ตารางสิทธิ์ผู้ใช้งานทั้งหมดในระบบ</h3>
+                  <h3 style={panelTitle}>รายชื่อผู้ใช้งานและสิทธิ์ในระบบ</h3>
                 </div>
 
                 <div style={tableScrollContainerStyle}>
@@ -2539,54 +2785,53 @@ export default function App() {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                       <thead style={{ position: 'sticky', top: 0, backgroundColor: MONO.PALE, zIndex: 2 }}>
                         <tr style={thRowStyle}>
-                          <th style={thStyle}>ID / Username</th>
+                          <th style={thStyle}>User ID / Username</th>
                           <th style={thStyle}>ชื่อ-นามสกุล</th>
-                          <th style={thStyle}>สิทธิ์ (Role)</th>
-                          <th style={thStyle}>LINE ID</th>
+                          <th style={thStyle}>บทบาท</th>
+                          <th style={thStyle}>LINE User ID</th>
                           <th style={thStyle}>จัดการ</th>
                         </tr>
                       </thead>
                       <tbody>
                         {usersList.map((u) => {
-                          const uid = u.user_id || u.id;
-                          const isUserAdmin = u.role === 'admin';
+                          const uId = u.user_id || u.id;
+                          const isSelf = u.username === currentUser.username;
+
                           return (
-                            <tr key={uid} style={trStyle}>
+                            <tr key={uId} style={trStyle}>
                               <td style={tdStyle}>
-                                <span style={codeBadge}>{uid}</span>
+                                <span style={codeBadge}>{uId}</span>
                                 <div style={{ fontWeight: '600', color: MONO.DARKEST, marginTop: '2px' }}>{u.username}</div>
                               </td>
                               <td style={tdStyle}>{u.name}</td>
                               <td style={tdStyle}>
-                                <span style={{
-                                  fontSize: '11px', fontWeight: '600', padding: '3px 8px', borderRadius: '12px',
-                                  backgroundColor: isUserAdmin ? MONO.DARKEST : ALERTS.SUCCESS_BG,
-                                  color: isUserAdmin ? '#ffffff' : ALERTS.SUCCESS_TEXT
+                                <span style={{ 
+                                  fontSize: '11px', fontWeight: '600', padding: '2px 8px', borderRadius: '12px',
+                                  backgroundColor: u.role === 'admin' ? MONO.DARKEST : ALERTS.SUCCESS_BG,
+                                  color: u.role === 'admin' ? '#ffffff' : ALERTS.SUCCESS_TEXT
                                 }}>
                                   {u.role ? u.role.toUpperCase() : 'PHARMACIST'}
                                 </span>
                               </td>
                               <td style={tdStyle}>
                                 {u.line_user_id ? (
-                                  <span style={{ fontSize: '11px', color: MONO.DEEP, fontWeight: '500' }}>✅ {u.line_user_id}</span>
+                                  <span style={{ fontSize: '11px', color: MONO.DEEP, fontWeight: '500' }}>{u.line_user_id}</span>
                                 ) : (
-                                  <span style={{ fontSize: '11px', color: MONO.SOFT }}>- ไม่ระบุ -</span>
+                                  <span style={{ fontSize: '11px', color: MONO.SOFT }}>ยังไม่ได้ระบุ</span>
                                 )}
                               </td>
                               <td style={tdStyle}>
-                                <button 
-                                  onClick={() => handleDeleteUser(uid, u.username)} 
-                                  disabled={u.username === currentUser.username}
-                                  style={{ 
-                                    ...btnEditMini, 
-                                    backgroundColor: u.username === currentUser.username ? MONO.TINT : ALERTS.EXPIRED_BG, 
-                                    color: u.username === currentUser.username ? MONO.SOFT : ALERTS.EXPIRED_TEXT, 
-                                    borderColor: u.username === currentUser.username ? MONO.TINT : ALERTS.EXPIRED_BORDER,
-                                    cursor: u.username === currentUser.username ? 'not-allowed' : 'pointer'
-                                  }}
-                                >
-                                  <Trash2 size={12} /> ลบ
-                                </button>
+                                {!isSelf ? (
+                                  <button 
+                                    onClick={() => handleDeleteUser(uId, u.username)} 
+                                    style={{ ...btnEditMini, backgroundColor: ALERTS.EXPIRED_BG, color: ALERTS.EXPIRED_TEXT, borderColor: ALERTS.EXPIRED_BORDER }}
+                                    title="ลบผู้ใช้"
+                                  >
+                                    <Trash2 size={12} /> ลบ
+                                  </button>
+                                ) : (
+                                  <span style={{ fontSize: '11px', color: MONO.SOFT }}>บัญชีปัจจุบัน</span>
+                                )}
                               </td>
                             </tr>
                           );
@@ -2602,7 +2847,7 @@ export default function App() {
         </main>
       </div>
 
-      {/* MODAL VIEW FOR PRODUCT LOT DETAILS */}
+      {/* LOT DETAILS MODAL */}
       {selectedProduct && (
         <div style={modalOverlayStyle} onClick={closeModal}>
           <div style={modalCardStyle} onClick={(e) => e.stopPropagation()}>
@@ -2611,76 +2856,81 @@ export default function App() {
                 <span style={codeBadge}>{selectedProduct.product_code}</span>
                 <h3 style={{ fontSize: '18px', fontWeight: '700', color: MONO.DARKEST, margin: '4px 0 0 0' }}>{selectedProduct.product_name}</h3>
               </div>
-              <button onClick={closeModal} style={{ background: 'none', border: 'none', color: MONO.DARK, cursor: 'pointer' }}><X size={20} /></button>
+              <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MONO.DARK }}>
+                <X size={20} />
+              </button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '60vh', overflowY: 'auto' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', padding: '12px', backgroundColor: MONO.PALE, borderRadius: '8px', fontSize: '12px' }}>
-                <div>รูปแบบ: <strong>{selectedProduct.product_type}</strong></div>
-                <div>หมวดหมู่: <strong>{selectedProduct.category}</strong></div>
-                <div>ตำแหน่ง: <strong>{selectedProduct.location || 'ตู้ A1'}</strong></div>
-              </div>
-
-              <h4 style={{ fontSize: '14px', fontWeight: '600', color: MONO.DARKEST, margin: '8px 0 0 0' }}>รายการล็อตยาทั้งหมดในคลัง</h4>
-
+            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
               {loadingLots ? (
                 <div style={{ textAlign: 'center', padding: '24px', color: MONO.DARK }}>กำลังโหลดข้อมูลล็อต...</div>
+              ) : productLots.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: MONO.DARK }}>ไม่พบล็อตยาคงเหลือ</div>
               ) : (
                 <div className="table-wrapper">
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                     <thead>
                       <tr style={thRowStyle}>
                         <th style={thStyle}>เลขล็อต</th>
-                        <th style={thStyle}>วันหมดอายุ</th>
-                        <th style={thStyle}>จำนวนคงเหลือ</th>
-                        <th style={thStyle}>ราคาทุน</th>
-                        <th style={thStyle}>ราคาขาย</th>
-                        {isAdmin && <th style={thStyle}>จัดการ</th>}
+                        <th style={thStyle}>วันหมดอายุ (EXP)</th>
+                        <th style={thStyle}>จำนวน</th>
+                        <th style={thStyle}>ราคาทุน / ขาย</th>
+                        <th style={thStyle}>จัดการ</th>
                       </tr>
                     </thead>
                     <tbody>
                       {productLots.map((lot) => {
-                        const lotId = lot.lot_id || lot.id;
-                        const isEditingThis = editingLotId === lotId;
+                        const lotIdVal = lot.lot_id || lot.id;
+                        const isEditingThis = editingLotId === lotIdVal;
                         const daysLeft = getDaysToExpiry(lot.expiry_date || lot.nearest_expiry);
                         const isExpired = daysLeft !== null && daysLeft <= 0;
 
                         return (
-                          <tr key={lotId} style={{ ...trStyle, backgroundColor: isExpired ? ALERTS.EXPIRED_BG : 'transparent' }}>
-                            <td style={tdStyle}><span style={lotBadge}>{lot.lot_number || 'LOT-1'}</span></td>
+                          <tr key={lotIdVal} style={trStyle}>
+                            <td style={tdStyle}><span style={lotBadge}>{lot.lot_number}</span></td>
                             <td style={tdStyle}>
                               {formatDate(lot.expiry_date || lot.nearest_expiry)}
-                              <div style={{ fontSize: '10px', color: isExpired ? ALERTS.EXPIRED_TEXT : (daysLeft <= 90 ? ALERTS.WARNING_TEXT : MONO.DEEP) }}>
-                                {isExpired ? '❌ หมดอายุแล้ว' : `(เหลือ ${daysLeft} วัน)`}
-                              </div>
+                              {isExpired && <span style={{ color: ALERTS.EXPIRED_TEXT, fontWeight: '600', marginLeft: '6px' }}>(หมดอายุ)</span>}
                             </td>
-                            <td style={tdStyle}><strong>{lot.quantity} {selectedProduct.unit}</strong></td>
-                            
+                            <td style={tdStyle}>{lot.quantity} {selectedProduct.unit}</td>
                             <td style={tdStyle}>
                               {isEditingThis ? (
-                                <input type="number" step="0.01" value={tempLotPrices.cost_price} onChange={(e) => setTempLotPrices({ ...tempLotPrices, cost_price: e.target.value })} style={{ width: '70px', height: '28px', padding: '0 4px', fontSize: '12px' }} />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <input 
+                                    type="number" 
+                                    placeholder="ทุน" 
+                                    value={tempLotPrices.cost_price} 
+                                    onChange={(e) => setTempLotPrices({ ...tempLotPrices, cost_price: e.target.value })} 
+                                    style={{ width: '80px', height: '26px', fontSize: '11px', padding: '0 4px', border: `1px solid ${MONO.TINT}`, borderRadius: '4px' }} 
+                                  />
+                                  <input 
+                                    type="number" 
+                                    placeholder="ขาย" 
+                                    value={tempLotPrices.selling_price} 
+                                    onChange={(e) => setTempLotPrices({ ...tempLotPrices, selling_price: e.target.value })} 
+                                    style={{ width: '80px', height: '26px', fontSize: '11px', padding: '0 4px', border: `1px solid ${MONO.TINT}`, borderRadius: '4px' }} 
+                                  />
+                                </div>
                               ) : (
-                                `฿${Number(lot.cost_price ?? selectedProduct.cost_price ?? 0).toFixed(2)}`
+                                <div>
+                                  <div>ทุน: ฿{Number(lot.cost_price ?? selectedProduct.cost_price ?? 0).toFixed(2)}</div>
+                                  <div>ขาย: ฿{Number(lot.selling_price ?? selectedProduct.selling_price ?? 0).toFixed(2)}</div>
+                                </div>
                               )}
                             </td>
-
                             <td style={tdStyle}>
-                              {isEditingThis ? (
-                                <input type="number" step="0.01" value={tempLotPrices.selling_price} onChange={(e) => setTempLotPrices({ ...tempLotPrices, selling_price: e.target.value })} style={{ width: '70px', height: '28px', padding: '0 4px', fontSize: '12px' }} />
-                              ) : (
-                                `฿${Number(lot.selling_price ?? selectedProduct.selling_price ?? 0).toFixed(2)}`
-                              )}
-                            </td>
-
-                            {isAdmin && (
-                              <td style={tdStyle}>
-                                {isEditingThis ? (
-                                  <button onClick={() => handleSaveLotPrices(lotId)} style={btnSaveMini}><Save size={11} /> บันทึก</button>
+                              {isAdmin && (
+                                isEditingThis ? (
+                                  <button onClick={() => handleSaveLotPrices(lotIdVal)} style={btnSaveMini}>
+                                    <Save size={11} /> บันทึก
+                                  </button>
                                 ) : (
-                                  <button onClick={() => handleStartEditLot(lot)} style={btnEditMini}><Edit2 size={11} /> แก้ไขราคา</button>
-                                )}
-                              </td>
-                            )}
+                                  <button onClick={() => handleStartEditLot(lot)} style={btnEditMini}>
+                                    <Edit2 size={11} /> แก้ไขราคา
+                                  </button>
+                                )
+                              )}
+                            </td>
                           </tr>
                         );
                       })}
@@ -2692,6 +2942,7 @@ export default function App() {
           </div>
         </div>
       )}
+
     </div>
   );
 }
