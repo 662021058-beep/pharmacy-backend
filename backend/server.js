@@ -16,6 +16,54 @@ app.use(cors({
 
 app.use(express.json());
 
+const ROP_LOOKBACK_DAYS = 30;
+const readRopSetting = (name, fallback, minimum) => {
+  const raw = process.env[name]?.trim();
+  const value = raw ? Number(raw) : fallback;
+  if (!Number.isSafeInteger(value) || value < minimum) {
+    throw new Error(`${name} must be an integer >= ${minimum}`);
+  }
+  return value;
+};
+const ROP_LEAD_TIME_DAYS = readRopSetting('ROP_LEAD_TIME_DAYS', 7, 1);
+const ROP_SAFETY_STOCK = readRopSetting('ROP_SAFETY_STOCK', 5, 0);
+
+// Use the same rolling dispense totals for all stock checks.
+const reorderUsageJoin = `
+  LEFT JOIN (
+    SELECT d.product_id, SUM(d.quantity) AS dispensed_quantity
+    FROM stock_transactions t
+    JOIN stock_transaction_details d ON d.transaction_id = t.transaction_id
+    WHERE t.transaction_type = 'DISPENSE'
+      AND t.created_at >= NOW() - INTERVAL ${ROP_LOOKBACK_DAYS} DAY
+      AND t.created_at <= NOW()
+      AND d.quantity > 0
+    GROUP BY d.product_id
+  ) usage_history ON usage_history.product_id = p.product_id
+`;
+
+function calculateReorderPoint(dispensedQuantity) {
+  return Math.ceil(Number(dispensedQuantity ?? 0) * ROP_LEAD_TIME_DAYS / ROP_LOOKBACK_DAYS) + ROP_SAFETY_STOCK;
+}
+
+async function getLowStockProducts() {
+  const [rows] = await db.query(`
+    SELECT p.product_code, p.product_name, p.unit, p.location,
+           COALESCE(stock.total_qty, 0) AS total_qty, usage_history.dispensed_quantity
+    FROM products p
+    LEFT JOIN (
+      SELECT product_id, SUM(quantity) AS total_qty
+      FROM product_lots
+      WHERE expiry_date > CURDATE() AND quantity > 0
+      GROUP BY product_id
+    ) stock ON stock.product_id = p.product_id
+    ${reorderUsageJoin}
+  `);
+  return rows
+    .map(row => ({ ...row, reorder_point: calculateReorderPoint(row.dispensed_quantity) }))
+    .filter(row => Number(row.total_qty) <= row.reorder_point);
+}
+
 // 🔑 ตั้งค่า LINE Messaging API Token (ดึงจาก process.env ก่อน หากไม่มีจะใช้ค่าสำรอง)
 const CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || 'usa+9GHFHDZU51oWCbsaKCCannqWYEttN9rT4iU6zZZ6QXb1xJ2t57r1lOyY/awsgvVNhVISp6BSky/AoX6pe2f6Qr4xfmWc1hnn8g9EPyjKyAb+5L+H2kYxyaXNiXSypZRbsbC9Z0M8Utt82lRINAdB04t89/1O/w1cDnyilFU=';
 
@@ -68,13 +116,7 @@ async function replyLineMessage(replyToken, textMessage) {
 async function generateStockReportAndNotify() {
   try {
     // 1. ดึงยาสต็อกต่ำกว่าเกณฑ์ (สำหรับ Admin)
-    const [lowStock] = await db.query(`
-      SELECT p.product_code, p.product_name, p.min_stock, p.unit, COALESCE(SUM(l.quantity), 0) AS total_qty
-      FROM products p
-      LEFT JOIN product_lots l ON p.product_id = l.product_id AND l.expiry_date > CURDATE()
-      GROUP BY p.product_id
-      HAVING total_qty <= p.min_stock
-    `);
+    const lowStock = await getLowStockProducts();
 
     // 2. ดึงยาล็อตที่หมดอายุแล้ว (รวมล็อตที่หมดอายุวันนี้) (สำหรับ Admin)
     const [expired] = await db.query(`
@@ -119,7 +161,7 @@ async function generateStockReportAndNotify() {
     adminMsg += `⚠️ 1. ยาสต็อกต่ำกว่าเกณฑ์ (${lowStock.length} รายการ):\n`;
     if (lowStock.length > 0) {
       lowStock.forEach((item, idx) => {
-        adminMsg += `${idx + 1}. [${item.product_code}] ${item.product_name} (เหลือ ${item.total_qty} ${item.unit} / เกณฑ์ ${item.min_stock})\n`;
+        adminMsg += `${idx + 1}. [${item.product_code}] ${item.product_name} (เหลือ ${item.total_qty} ${item.unit} / ROP ${item.reorder_point})\n`;
       });
     } else {
       adminMsg += ` - สต็อกอยู่ในระดับปกติทุกรายการ\n`;
@@ -314,25 +356,28 @@ app.delete('/api/users/:id', async (req, res) => {
 // 📦 API Products & Stock
 app.get('/api/products', async (req, res) => {
   try {
-    const [products] = await db.query('SELECT * FROM products ORDER BY product_id DESC');
-    const [lots] = await db.query('SELECT * FROM product_lots ORDER BY expiry_date ASC');
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const [products] = await db.query(`
+      SELECT p.*, usage_history.dispensed_quantity
+      FROM products p
+      ${reorderUsageJoin}
+      ORDER BY p.product_id DESC
+    `);
+    const [lots] = await db.query(`
+      SELECT l.*, (l.quantity > 0 AND l.expiry_date > CURDATE()) AS is_sellable
+      FROM product_lots l
+      ORDER BY l.expiry_date ASC
+    `);
 
     const dataList = products.map(p => {
       const productLots = lots.filter(l => l.product_id === p.product_id);
-      const activeLots = productLots.filter(l => {
-        const exp = new Date(l.expiry_date);
-        exp.setHours(0, 0, 0, 0);
-        return l.quantity > 0 && exp >= today;
-      });
+      const activeLots = productLots.filter(l => l.is_sellable === 1);
 
       activeLots.sort((a, b) => new Date(a.expiry_date) - new Date(b.expiry_date));
 
       const total_quantity = activeLots.reduce((sum, l) => sum + Number(l.quantity), 0);
       const fefo_lot = activeLots.length > 0 ? activeLots[0].lot_number : null;
       const nearest_expiry = activeLots.length > 0 ? activeLots[0].expiry_date : null;
+      const reorderPoint = calculateReorderPoint(p.dispensed_quantity);
 
       return {
         id: p.product_id,
@@ -344,7 +389,14 @@ app.get('/api/products', async (req, res) => {
         category: p.category,
         cost_price: p.cost_price,
         selling_price: p.selling_price,
-        min_stock: p.min_stock,
+        min_stock: reorderPoint,
+        reorder_point: reorderPoint,
+        reorder_point_inputs: {
+          lookback_days: ROP_LOOKBACK_DAYS,
+          average_daily_usage: Number(p.dispensed_quantity ?? 0) / ROP_LOOKBACK_DAYS,
+          lead_time_days: ROP_LEAD_TIME_DAYS,
+          safety_stock: ROP_SAFETY_STOCK
+        },
         location: p.location,
         total_quantity,
         nearest_expiry,
@@ -367,22 +419,10 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
-// ฟังก์ชันลบเว้นวรรคหัว-ท้าย และลดเว้นวรรคซ้ำๆ ให้เหลือเว้นวรรคเดียว
-const sanitizeText = (text) => {
-  if (!text) return '';
-  return String(text).replace(/\s+/g, ' ').trim();
-};
-
-// ตัวอย่างการนำไปใช้ใน API /api/products
-const rawType = sanitizeText(product_type) || 'tablet';
-const rawCategory = sanitizeText(category) || 'ยาสามัญประจำบ้าน';
-const rawUnit = sanitizeText(unit) || 'เม็ด';
-
-
 app.post('/api/products', async (req, res) => {
   const { 
     product_code, product_name, product_type, unit, category,
-    cost_price, selling_price, min_stock, location,
+    cost_price, selling_price, location,
     lot_number, expiry_date, quantity 
   } = req.body;
 
@@ -456,7 +496,7 @@ app.post('/api/products', async (req, res) => {
         [
           product_code.trim(), product_name.trim(), typeId, unitId, categoryId,
           parseFloat(cost_price) || 0, parseFloat(selling_price) || 0,
-          parseInt(min_stock) || 10, location || 'ตู้ทั่วไป'
+          0, location || 'ตู้ทั่วไป'
         ]
       );
       productId = productResult.insertId;
@@ -559,28 +599,36 @@ app.post('/api/dispense', async (req, res) => {
       });
     }
 
-    await db.query(
-      'UPDATE product_lots SET quantity = quantity - ? WHERE lot_id = ?',
-      [qtyToDeduct, targetLot.lot_id]
-    );
-
+    const connection = await db.getConnection();
     try {
+      await connection.beginTransaction();
+      const [result] = await connection.query(
+        'UPDATE product_lots SET quantity = quantity - ? WHERE lot_id = ? AND quantity >= ?',
+        [qtyToDeduct, targetLot.lot_id, qtyToDeduct]
+      );
+      if (result.affectedRows === 0) {
+        await connection.rollback();
+        return res.status(409).json({ success: false, message: 'จำนวนยาคงเหลือเปลี่ยนแปลง กรุณาโหลดข้อมูลล็อตใหม่' });
+      }
+
       let userId = dispensed_by || 'U001';
-      const [uRows] = await db.query('SELECT user_id FROM users WHERE user_id = ? OR username = ?', [userId, userId]);
+      const [uRows] = await connection.query('SELECT user_id FROM users WHERE user_id = ? OR username = ?', [userId, userId]);
       if (uRows.length > 0) userId = uRows[0].user_id;
 
-      const [txResult] = await db.query(
+      const [txResult] = await connection.query(
         "INSERT INTO stock_transactions (user_id, transaction_type) VALUES (?, 'DISPENSE')",
         [userId]
       );
-      if (txResult.insertId) {
-        await db.query(
-          "INSERT INTO stock_transaction_details (transaction_id, product_id, lot_id, quantity, unit_price) VALUES (?, ?, ?, ?, ?)",
-          [txResult.insertId, targetLot.product_id, targetLot.lot_id, qtyToDeduct, targetLot.selling_price || 0]
-        );
-      }
-    } catch (txErr) {
-      console.warn('⚠️ บันทึก Transaction log ไม่สำเร็จ:', txErr.message);
+      await connection.query(
+        "INSERT INTO stock_transaction_details (transaction_id, product_id, lot_id, quantity, unit_price) VALUES (?, ?, ?, ?, ?)",
+        [txResult.insertId, targetLot.product_id, targetLot.lot_id, qtyToDeduct, targetLot.selling_price || 0]
+      );
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
     }
 
     return res.status(200).json({
@@ -593,29 +641,11 @@ app.post('/api/dispense', async (req, res) => {
   }
 });
 
-app.patch('/api/products/:id', async (req, res) => {
-  const { id } = req.params;
-  const { min_stock } = req.body;
-
-  if (min_stock === undefined || isNaN(min_stock)) {
-    return res.status(400).json({ success: false, message: 'กรุณาระบุ min_stock เป็นตัวเลข' });
-  }
-
-  try {
-    const [result] = await db.query(
-      'UPDATE products SET min_stock = ? WHERE product_id = ? OR product_code = ?',
-      [parseInt(min_stock), id, id]
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ success: false, message: `ไม่พบรายการยาสำหรับ ID/Code: ${id}` });
-    }
-
-    return res.status(200).json({ success: true, message: 'อัปเดตเกณฑ์เตือนสต็อกต่ำเรียบร้อย!' });
-  } catch (error) {
-    console.error('❌ Error updating min_stock:', error.message);
-    return res.status(500).json({ success: false, message: error.message });
-  }
+app.patch('/api/products/:id', (req, res) => {
+  return res.status(405).json({
+    success: false,
+    message: 'เกณฑ์เตือนสต็อกต่ำคำนวณจาก ROP อัตโนมัติ'
+  });
 });
 
 app.get('/api/products/:id/lots', async (req, res) => {
@@ -672,13 +702,7 @@ app.post('/api/chat', async (req, res) => {
   try {
     // 1. ตรวจสอบยาสต็อกต่ำกว่าเกณฑ์
     if (q.includes('สต็อก') || q.includes('ต่ำ') || q.includes('เหลือน้อย') || q.includes('เติม')) {
-      const [rows] = await db.query(`
-        SELECT p.product_code, p.product_name, p.min_stock, p.unit, p.location, COALESCE(SUM(l.quantity), 0) AS total_qty
-        FROM products p
-        LEFT JOIN product_lots l ON p.product_id = l.product_id AND l.expiry_date >= CURDATE()
-        GROUP BY p.product_id
-        HAVING total_qty <= p.min_stock
-      `);
+      const rows = await getLowStockProducts();
 
       if (rows.length === 0) {
         return res.status(200).json({ success: true, reply: '✅ สต็อกยาในคลังสมบูรณ์ดีทุกรายการครับ ไม่มีรายการยาที่ต่ำกว่าเกณฑ์เตือน' });
@@ -686,7 +710,7 @@ app.post('/api/chat', async (req, res) => {
 
       let replyText = `⚠️ รายงานยาที่สต็อกต่ำกว่าเกณฑ์เตือน (รวมทั้งหมด ${rows.length} รายการ):\n\n`;
       rows.forEach((item, index) => {
-        replyText += `${index + 1}. [${item.product_code}] ${item.product_name}\n   - สต็อกคงเหลือ: ${item.total_qty} ${item.unit} (เกณฑ์ต่ำสุด: ${item.min_stock} ${item.unit})\n   - ตำแหน่งจัดเก็บ: ${item.location || 'ตู้ทั่วไป'}\n\n`;
+        replyText += `${index + 1}. [${item.product_code}] ${item.product_name}\n   - สต็อกคงเหลือ: ${item.total_qty} ${item.unit} (ROP: ${item.reorder_point} ${item.unit})\n   - ตำแหน่งจัดเก็บ: ${item.location || 'ตู้ทั่วไป'}\n\n`;
       });
       replyText += `💡 คำแนะนำ: แนะนำให้ทำรายการรับยาเข้าในเมนู "จัดการคลังยา" เพื่อสั่งซื้อเติมคลังครับ`;
       return res.status(200).json({ success: true, reply: replyText });
