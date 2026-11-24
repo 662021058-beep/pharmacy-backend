@@ -16,7 +16,7 @@ app.use(cors({
 
 app.use(express.json());
 
-const ROP_LOOKBACK_DAYS = 30;
+const ROP_LOOKBACK_DAYS = 90;
 const readRopSetting = (name, fallback, minimum) => {
   const raw = process.env[name]?.trim();
   const value = raw ? Number(raw) : fallback;
